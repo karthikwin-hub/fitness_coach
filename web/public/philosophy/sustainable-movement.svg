@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Sustainable movement">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1e1e"/>
+      <stop offset="100%" style="stop-color:#1a3a3a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <circle cx="400" cy="280" r="100" fill="#16b1a9" opacity="0.2"/>
+  <path d="M340 380 L340 300 Q340 240 400 220 Q460 240 460 300 L460 380" stroke="#16b1a9" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <circle cx="400" cy="200" r="28" fill="#16b1a9"/>
+  <path d="M380 320 L400 280 L420 320" stroke="#16b1a9" stroke-width="6" fill="none" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,8 @@
+# Append this block to /etc/caddy/Caddyfile on the Oracle VM (after trade-ideas / tax-optimize).
+# Then: sudo systemctl reload caddy
+#
+# Requires DuckDNS: abstrack.duckdns.org → VM public IP (see docs/oracle-vm-hosting-setup.md)
+
+abstrack.duckdns.org {
+	reverse_proxy 127.0.0.1:8030
+}

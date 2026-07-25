@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Coach Helna hybrid methodology">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#16b1a9;stop-opacity:0.35"/>
+      <stop offset="55%" style="stop-color:#1e1e1e;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <text x="400" y="280" text-anchor="middle" fill="#f5f5f5" font-family="system-ui,sans-serif" font-size="42" font-weight="700">Abs-Track</text>
+  <text x="400" y="330" text-anchor="middle" fill="#ffffff99" font-family="system-ui,sans-serif" font-size="22">Hybrid coaching � Nutrition � Movement � Data</text>
+</svg>

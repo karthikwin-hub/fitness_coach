@@ -1,0 +1,29 @@
+# systemd unit for Abs-Track Next.js (standalone) on Oracle Cloud VM.
+#
+# Install once:
+#   sudo cp deploy/fitness-coach.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now fitness-coach
+#
+# See docs/oracle-vm-hosting-setup.md
+
+[Unit]
+Description=Abs-Track fitness coach (Next.js)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=fitness-coach
+Group=fitness-coach
+WorkingDirectory=/opt/fitness-coach/app
+EnvironmentFile=/opt/fitness-coach/web/.env.local
+Environment=PORT=8030
+Environment=HOSTNAME=127.0.0.1
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /opt/fitness-coach/app/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

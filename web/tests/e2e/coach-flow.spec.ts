@@ -1,0 +1,59 @@
+import { expect, test } from "@playwright/test";
+import { loginAsDevPersona } from "./helpers/auth";
+
+test.describe("Flow C — Coach command center", () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsDevPersona(page, "coach");
+    await expect(page).toHaveURL(/\/coach$/);
+  });
+
+  test("TC-FM04-010: command center loads", async ({ page }) => {
+    await expect(page.getByText(/Check-ins|Command center|Needs review/i).first()).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("TC-FM03-010: plan delivery list", async ({ page }) => {
+    await page.goto("/coach/plans");
+    await expect(page.getByRole("heading", { name: "Plan delivery" })).toBeVisible();
+  });
+
+  test("TC-COACH-001: members active tab", async ({ page }) => {
+    await page.goto("/coach/members");
+    await expect(page.getByText("Avinash Mehta")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Hetal Patel").first()).toBeVisible();
+  });
+
+  test("TC-COACH-002: member profile loads", async ({ page }) => {
+    await page.goto("/coach/members");
+    await page.getByRole("link", { name: /Avinash Mehta/i }).click();
+    await expect(page).toHaveURL(/\/coach\/members\//);
+    await expect(page.getByRole("heading", { name: "Avinash Mehta" })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText("avinash@abstrack.local")).toBeVisible();
+  });
+
+  test("TC-MSG-002: coach sees member message thread", async ({ page }) => {
+    const demoMemberId = await page.evaluate(async () => {
+      const res = await fetch("/api/members", {
+        headers: { Authorization: "Bearer dev-local-token" },
+      });
+      const members = (await res.json()) as { id: string; email: string }[];
+      return members.find((m) => m.email === "member@abstrack.local")?.id ?? null;
+    });
+    expect(demoMemberId).toBeTruthy();
+    await page.goto(`/coach/members/${demoMemberId}`);
+    await expect(page.getByRole("heading", { name: "Messages" })).toBeVisible();
+    await expect(page.getByText(/Welcome to Abs-Track|Say hi to your coach/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByLabel("Message")).toBeVisible();
+  });
+
+  test("TC-COACH-003: paused clients tab", async ({ page }) => {
+    await page.goto("/coach/members");
+    await page.getByRole("button", { name: /Paused/i }).click();
+    await expect(page.getByText("Former Client (paused)")).toBeVisible({ timeout: 10_000 });
+  });
+});

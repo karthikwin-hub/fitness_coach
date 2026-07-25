@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Nutrition first">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1e1e"/>
+      <stop offset="100%" style="stop-color:#2a4a2a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <circle cx="400" cy="260" r="120" fill="#8ac75b" opacity="0.25"/>
+  <ellipse cx="400" cy="320" rx="180" ry="40" fill="#8ac75b" opacity="0.15"/>
+  <path d="M320 280 Q400 200 480 280 L460 340 Q400 380 340 340 Z" fill="#8ac75b" opacity="0.85"/>
+  <circle cx="370" cy="250" r="18" fill="#6ba843"/>
+  <circle cx="430" cy="240" r="14" fill="#6ba843"/>
+</svg>
