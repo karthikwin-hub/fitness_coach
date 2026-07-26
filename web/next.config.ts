@@ -11,6 +11,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  serverExternalPackages: ["pdfkit"],
+  outputFileTracingIncludes: {
+    "/api/coach/user-guide": ["./node_modules/pdfkit/js/data/**/*"],
+    "/api/plan-deliveries/**": ["./node_modules/pdfkit/js/data/**/*"],
+    "/api/members/me/plan-pdf": ["./node_modules/pdfkit/js/data/**/*"],
+  },
   async headers() {
     return [
       {

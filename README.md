@@ -82,18 +82,22 @@ Full checklist: [docs/firebase-production-setup.md](docs/firebase-production-set
 | `/member/check-in` | Weight, sleep, energy, soreness, meal photo; optional add to food diary |
 | `/member/workouts` | Today's session; set completion persists across visits |
 | `/member/nutrition` | Macro targets, native food diary (+ search/barcode), coach content blocks |
+| `/member/appointments` | View available 30-minute slots; book, reschedule, cancel, join, or add to Google Calendar |
 | `/member/messages` | In-app chat with coach |
 
 ### Coach portal
 
+Persistent **top navigation** on every coach screen: Command center, Members, Calendar, Plan delivery, Settings (plus Sign out / Switch persona in dev).
+
 | Path | Description |
 |------|-------------|
 | `/coach` | Command center — check-in queue, sparklines, trend alerts, AI review, recipe drawer |
-| `/coach/settings` | Brand accents, optional coach note, **download how-to PDF** (coach only) |
+| `/coach/calendar` | Weekly client calendar — drag-select appointments; block times, days, weeks, or recurring weekdays |
+| `/coach/settings` | Brand accents, meeting defaults, Google Calendar connection, **download how-to PDF** (coach only) |
 | `/coach/members` | Roster by status; at-risk badges from trend rules |
 | `/coach/members/[id]` | Full profile, program phases, food diary summary, check-in history, messages |
-| `/coach/plans` | Plan delivery — client list |
-| `/coach/plans/[id]` | Client plan hub — publish, **Prepare delivery**, email / WhatsApp / link |
+| `/coach/plans` | Plan delivery — client list (tabs: Clients, Content blocks, Exercise catalog, Pilot metrics) |
+| `/coach/plans/[id]` | Client plan hub — shows client name; publish, **Prepare delivery**, email / WhatsApp / link |
 | `/coach/plans/[id]/training` | Training builder — gym/home templates, edit, Save & publish |
 | `/coach/plans/[id]/nutrition` | Nutrition builder — macros, blocks, Save & publish |
 | `/coach/pilot` | Helna pilot metrics (<5 min publish target) |
@@ -122,7 +126,7 @@ Full checklist: [docs/firebase-production-setup.md](docs/firebase-production-set
 - **Tenant branding:** `brandingJson` drives CSS variables (`--brand-workout`, `--brand-diet`, etc.)
 - **Coach settings:** dual accent (workout + nutrition) or single accent with derived secondary
 - **Copy bible:** Helna-approved micro-copy in `web/lib/copy/` (command center, dashboard, empty states)
-- **Typography:** Instrument Serif display font on coach portal; Montserrat on member PWA
+- **Typography:** Montserrat across coach portal and member PWA
 
 ### Member experience
 
@@ -130,6 +134,17 @@ Full checklist: [docs/firebase-production-setup.md](docs/firebase-production-set
 - **Program phase strip:** coach-defined phases tied to program start/end dates
 - **Optional coach note:** pinned on dashboard when Helna posts one (no empty placeholder when absent)
 - **Streak toasts:** CSS-only celebration at 7/30 days
+- **Appointments:** choose one or more consecutive 30-minute slots; receive email + ICS, location or join link, and an Add to Google Calendar link
+
+### Calendar and booking
+
+- Custom in-app weekly calendar tied directly to coach/member records.
+- Coaches can block one-off time, an entire day/week, or recurring weekdays such as every Sunday.
+- Meeting options: in person (location), Google Meet, Zoom link, WhatsApp link, or no location.
+- Optional coach Google Calendar OAuth mirrors appointments and blocked time. Connect the same Google calendar to Cal.com so prospect bookings respect in-app busy time.
+- Google Meet links are created automatically when Google Calendar is connected; Zoom and WhatsApp use coach-configured links.
+
+Google sync env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and `CALENDAR_TOKEN_ENCRYPTION_KEY`. Configure the redirect URI in Google Cloud and then connect under Coach Settings.
 
 ### Plan delivery
 
@@ -194,7 +209,7 @@ npm run test:e2e      # Playwright — builds + serves on :3011
 
 | Suite | Location | Notes |
 |-------|----------|-------|
-| Unit | `web/lib/**/*.test.ts` | Brand, trends, plan delivery tokens/vars, PDF packs, how-to guide, nutrition, quiz |
+| Unit | `web/lib/**/*.test.ts` | Brand, trends, plan delivery tokens/vars, PDF packs + how-to guide, appointments slots, nutrition, quiz |
 | API | `web/tests/api/integration.test.ts` | Leads, members, check-ins, **plan-deliveries**, messages (requires Postgres) |
 | E2E | `web/tests/e2e/*.spec.ts` | Prospect, member, coach, auth flows |
 
@@ -252,7 +267,14 @@ deploy\deploy-app.ps1 `
   -EnvFile web\.env.production.local
 ```
 
-After schema changes (`plan_deliveries`, exercise `slug`, template `key`, etc.), run `npm run db:push` on the server (or via `deploy/migrate-db.ps1`) **before** redeploying app code that depends on new tables/columns.
+After schema changes (appointments, calendar blocks, `plan_deliveries`, exercise `slug`, template `key`, etc.), apply SQL migrations on the server **before** redeploying app code that depends on new tables/columns:
+
+```powershell
+deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-appointments.sql
+deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-calendar-ux-sync.sql
+```
+
+Or run `npm run db:push` on the server (or via `deploy/migrate-db.ps1` without `-SqlFile`).
 
 ## Project layout
 

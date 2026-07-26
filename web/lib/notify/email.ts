@@ -4,6 +4,10 @@ export type EmailPayload = {
   html: string;
   text?: string;
   from?: string;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+  }>;
 };
 
 export type EmailResult =
@@ -43,6 +47,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
     subject: payload.subject,
     html: payload.html,
     ...(payload.text ? { text: payload.text } : {}),
+    ...(payload.attachments ? { attachments: payload.attachments } : {}),
   };
 
   const apiKey = process.env.RESEND_API_KEY;

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RequireAuth } from "@/components/auth/require-auth";
+import { CoachClientPlanHeader } from "@/components/coach/coach-client-plan-header";
 import { usePilotTimer } from "@/components/coach/use-pilot-timer";
 import { DragReorderList } from "@/components/coach/drag-reorder-list";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
@@ -322,13 +323,9 @@ export default function TrainingBuilderPage() {
   return (
     <RequireAuth roles={["coach", "platform_admin"]}>
       <div className="min-h-dvh bg-[var(--brand-dark)] text-white pb-32">
-        <header className="border-b border-white/10 px-4 py-4">
-          <Link href={`/coach/plans/${memberId}`} className="text-xs text-white/50">
-            ← Client plans
-          </Link>
-          <div className="mt-1 flex items-center justify-between">
-            <h1 className="font-heading text-xl">Training builder</h1>
-            {timer.running && (
+        <CoachClientPlanHeader memberId={memberId} title="Training builder">
+          {timer.running && (
+            <div className="mt-2 flex justify-end">
               <span
                 className={`rounded-full px-3 py-1 text-xs font-mono ${
                   timer.underTarget
@@ -338,8 +335,8 @@ export default function TrainingBuilderPage() {
               >
                 {timer.format(timer.elapsed)} / 5:00
               </span>
-            )}
-          </div>
+            </div>
+          )}
           {activePlan && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <select
@@ -364,7 +361,7 @@ export default function TrainingBuilderPage() {
               </label>
             </div>
           )}
-        </header>
+        </CoachClientPlanHeader>
 
         <div className="mx-auto max-w-2xl space-y-4 px-4 py-6">
           {message && (

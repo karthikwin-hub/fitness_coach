@@ -16,6 +16,34 @@ test.describe("Flow C — Coach command center", () => {
   test("TC-FM03-010: plan delivery list", async ({ page }) => {
     await page.goto("/coach/plans");
     await expect(page.getByRole("heading", { name: "Plan delivery" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Content blocks" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Exercise catalog" })).toBeVisible();
+  });
+
+  test("TC-COACH-NAV: top nav on all coach screens", async ({ page }) => {
+    await expect(page.getByRole("link", { name: "Members" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Calendar" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Plan delivery" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+
+    await page.goto("/coach/settings");
+    await expect(page.getByRole("link", { name: "Command center" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Brand & voice/i })).toBeVisible();
+  });
+
+  test("TC-COACH-GUIDE: how-to guide download", async ({ page }) => {
+    await page.goto("/coach/settings");
+    const res = await page.evaluate(async () => {
+      const r = await fetch("/api/coach/user-guide", {
+        headers: { Authorization: "Bearer dev-local-token" },
+      });
+      const buf = await r.arrayBuffer();
+      const header = new TextDecoder().decode(new Uint8Array(buf).slice(0, 4));
+      return { ok: r.ok, status: r.status, header, size: buf.byteLength };
+    });
+    expect(res.ok).toBe(true);
+    expect(res.header).toBe("%PDF");
+    expect(res.size).toBeGreaterThan(800);
   });
 
   test("TC-COACH-001: members active tab", async ({ page }) => {

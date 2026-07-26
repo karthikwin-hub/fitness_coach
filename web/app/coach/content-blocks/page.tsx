@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { RequireAuth } from "@/components/auth/require-auth";
+import { CoachPlanDeliveryNav } from "@/components/coach/coach-plan-delivery-nav";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
 
 type Block = {
@@ -115,9 +115,11 @@ export default function ContentBlocksPage() {
     <RequireAuth roles={["coach", "platform_admin"]}>
       <div className="min-h-dvh bg-[var(--brand-dark)] text-white">
         <header className="border-b border-white/10 px-4 py-4">
-          <Link href="/coach/plans" className="text-xs text-white/50">← Plans</Link>
           <h1 className="font-heading text-xl">Content block library</h1>
           <p className="mt-1 text-sm text-white/50">Tap a block to view and edit its content.</p>
+          <div className="mt-4">
+            <CoachPlanDeliveryNav />
+          </div>
         </header>
         <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
           <form onSubmit={createBlock} className="space-y-3 rounded-xl border border-white/10 p-4">

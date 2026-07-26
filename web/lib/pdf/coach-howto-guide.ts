@@ -2,7 +2,7 @@
  * Simple, non-technical Abs-Track how-to guide for coaches.
  * Covers coach, active member, and new-member journeys in plain language.
  */
-import PDFDocument from "pdfkit";
+import { createPdfDocument } from "@/lib/pdf/create-pdf-document";
 
 const TEAL = "#16B1A9";
 const DARK = "#0d3d38";
@@ -24,8 +24,10 @@ const SECTIONS: Section[] = [
     intro: "Sign in with your coach Google account (or Coach — Helna in local testing).",
     bullets: [
       "Command center: review daily check-ins, meal photos, and approve or flag what needs a note.",
+      "Top navigation: jump between Command center, Members, Calendar, Plan delivery, and Settings from any coach screen.",
       "Members: open a client’s profile to see goals, health notes, program dates, and messages.",
-      "Plans: open Plan delivery → pick a client → build or update training and nutrition for the week.",
+      "Calendar: view appointments, book clients, and block times, days, weeks, or recurring weekdays.",
+      "Plan delivery: pick a client from the Clients tab, then build or update training and nutrition for the week.",
       "Templates: use + Gym template or + Home template to start from a full week, then tweak for that person.",
       "Publish: when the week looks right, Save & publish training and nutrition.",
       "Send the plan: on the client plan page, Prepare delivery → Preview PDF, email, WhatsApp, or copy the link.",
@@ -49,6 +51,7 @@ const SECTIONS: Section[] = [
     intro: "Clients sign in with Google and land on their home dashboard.",
     bullets: [
       "Home: streak, progress, today’s focus, and your optional coach note.",
+      "Appointments: book 30-minute slots with your coach; get email, calendar file, and join link.",
       "Check-in: weight, sleep, energy, soreness, and an optional meal photo — sent to you.",
       "Workouts: today’s session with videos; tick sets as they go (saved automatically).",
       "Nutrition: calorie/protein targets, tips from you, and a food diary (search or add manually).",
@@ -80,7 +83,7 @@ const SECTIONS: Section[] = [
 
 export async function renderCoachHowtoGuidePdf(): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 48, size: "A4", autoFirstPage: true });
+    const doc = createPdfDocument({ margin: 48, size: "A4", autoFirstPage: true });
     const chunks: Buffer[] = [];
     doc.on("data", (c) => chunks.push(c as Buffer));
     doc.on("end", () => resolve(Buffer.concat(chunks)));

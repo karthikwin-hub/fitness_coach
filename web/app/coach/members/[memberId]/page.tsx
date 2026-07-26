@@ -136,10 +136,7 @@ function CoachMemberProfileContent() {
   return (
       <div className="min-h-dvh bg-[var(--brand-dark)] text-white">
         <header className="border-b border-white/10 px-4 py-4">
-          <Link href="/coach/members" className="text-xs text-white/50">
-            ← All members
-          </Link>
-          <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="font-heading text-xl">{fullName}</h1>
               <p className="text-sm text-white/50">{profile.email}</p>

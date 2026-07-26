@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RequireAuth } from "@/components/auth/require-auth";
+import { CoachClientPlanHeader } from "@/components/coach/coach-client-plan-header";
 import { usePilotTimer } from "@/components/coach/use-pilot-timer";
 import { DragReorderList } from "@/components/coach/drag-reorder-list";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
@@ -136,12 +136,7 @@ export default function NutritionBuilderPage() {
     return (
       <RequireAuth roles={["coach", "platform_admin"]}>
         <div className="min-h-dvh bg-[var(--brand-dark)] text-white">
-          <header className="border-b border-white/10 px-4 py-4">
-            <Link href={`/coach/plans/${memberId}`} className="text-xs text-white/50">
-              ← Client plans
-            </Link>
-            <h1 className="font-heading text-xl">Nutrition builder</h1>
-          </header>
+          <CoachClientPlanHeader memberId={memberId} title="Nutrition builder" />
           <div className="mx-auto max-w-2xl space-y-4 px-4 py-12 text-center">
             <p className="text-white/60">No nutrition plan for this client yet.</p>
             <button
@@ -160,12 +155,8 @@ export default function NutritionBuilderPage() {
   return (
     <RequireAuth roles={["coach", "platform_admin"]}>
       <div className="min-h-dvh bg-[var(--brand-dark)] text-white pb-24">
-        <header className="border-b border-white/10 px-4 py-4">
-          <Link href={`/coach/plans/${memberId}`} className="text-xs text-white/50">
-            ← Client plans
-          </Link>
-          <h1 className="font-heading text-xl">Nutrition builder</h1>
-          <div className="flex items-center justify-between">
+        <CoachClientPlanHeader memberId={memberId} title="Nutrition builder">
+          <div className="mt-2 flex items-center justify-between">
             <p className="text-sm text-white/60">
               Week {plan.weekNumber} · {plan.status}
             </p>
@@ -177,7 +168,7 @@ export default function NutritionBuilderPage() {
               </span>
             )}
           </div>
-        </header>
+        </CoachClientPlanHeader>
 
         <div className="mx-auto max-w-2xl space-y-4 px-4 py-6">
           {message && <p className="rounded-lg bg-[var(--brand-diet)]/20 px-3 py-2 text-sm">{message}</p>}

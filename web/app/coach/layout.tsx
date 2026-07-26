@@ -1,14 +1,9 @@
-import { Instrument_Serif } from "next/font/google";
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-display",
-});
+import { CoachTopNav } from "@/components/coach/coach-top-nav";
 
 export default function CoachLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`${instrumentSerif.variable} coach-shell min-h-dvh`}>
+    <div className="coach-shell min-h-dvh">
+      <CoachTopNav />
       {children}
     </div>
   );

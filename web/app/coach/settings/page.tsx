@@ -1,11 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
-import { coachCopy } from "@/lib/copy/coach-portal";
 import { ABSTRACK_BRAND, type AccentMode, type TenantBranding } from "@/lib/brand";
+import { coachCopy } from "@/lib/copy/coach-portal";
+
+type CalendarSettings = {
+  preferredMeetingType: "none" | "in_person" | "google_meet" | "zoom" | "whatsapp";
+  defaultLocation: string;
+  defaultZoomUrl: string;
+  defaultWhatsappUrl: string;
+  timeZone: string;
+  googleConfigured: boolean;
+  googleConnected: boolean;
+  googleEmail: string | null;
+};
 
 export default function CoachSettingsPage() {
   return (
@@ -27,16 +37,32 @@ function CoachSettingsContent() {
   const [broadcastAudio, setBroadcastAudio] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [guideError, setGuideError] = useState<string | null>(null);
+  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings>({
+    preferredMeetingType: "none",
+    defaultLocation: "",
+    defaultZoomUrl: "",
+    defaultWhatsappUrl: "",
+    timeZone: "Europe/London",
+    googleConfigured: false,
+    googleConnected: false,
+    googleEmail: null,
+  });
+  const [calendarError, setCalendarError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
       authFetch("/api/tenant/branding", {}, getHeaders).then((r) => r.json()),
       authFetch("/api/coach/broadcast", {}, getHeaders).then((r) => r.json()),
-    ]).then(([brandData, broadcastData]) => {
+      authFetch("/api/coach/calendar/settings", {}, getHeaders).then((r) => r.json()),
+    ]).then(([brandData, broadcastData, calendarData]) => {
       if (brandData?.branding) setBranding(brandData.branding);
       if (broadcastData?.active) {
         setBroadcastBody(broadcastData.active.body ?? "");
         setBroadcastAudio(broadcastData.active.audioUrl ?? "");
+      }
+      if (!calendarData?.error) {
+        setCalendarSettings(calendarData);
       }
     });
   }, [getHeaders]);
@@ -58,6 +84,21 @@ function CoachSettingsContent() {
         active: broadcastBody.trim().length > 0,
       }),
     }, getHeaders);
+    const calendarResponse = await authFetch(
+      "/api/coach/calendar/settings",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(calendarSettings),
+      },
+      getHeaders,
+    );
+    if (!calendarResponse.ok) {
+      const data = await calendarResponse.json().catch(() => ({}));
+      setCalendarError(data.error ?? "Could not save calendar settings.");
+    } else {
+      setCalendarError(null);
+    }
     setSaving(false);
     setSaved(true);
   }
@@ -65,8 +106,7 @@ function CoachSettingsContent() {
   return (
     <div className="coach-atmosphere min-h-dvh text-white">
       <header className="border-b border-white/10 px-4 py-4">
-        <Link href="/coach" className="text-xs text-white/50">← Command center</Link>
-        <h1 className="font-display mt-2 text-xl">{coachCopy.settingsTitle}</h1>
+        <h1 className="font-heading text-xl">{coachCopy.settingsTitle}</h1>
       </header>
 
       <form onSubmit={saveAll} className="mx-auto max-w-lg space-y-8 px-4 py-6">
@@ -122,6 +162,154 @@ function CoachSettingsContent() {
         </section>
 
         <section className="space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
+          <h2 className="font-heading text-sm">Calendar and meeting defaults</h2>
+          <p className="text-xs text-white/50">
+            These defaults are used when a member books. Connecting the same
+            Google Calendar used by Cal.com prevents double-booking.
+          </p>
+          <label className="block text-xs text-white/50">
+            Preferred meeting type
+            <select
+              value={calendarSettings.preferredMeetingType}
+              onChange={(event) =>
+                setCalendarSettings((current) => ({
+                  ...current,
+                  preferredMeetingType: event.target
+                    .value as CalendarSettings["preferredMeetingType"],
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+            >
+              <option value="none">No location / link</option>
+              <option value="in_person">In person</option>
+              <option value="google_meet">Google Meet</option>
+              <option value="zoom">Zoom</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+          </label>
+          <label className="block text-xs text-white/50">
+            Default in-person location
+            <input
+              value={calendarSettings.defaultLocation}
+              onChange={(event) =>
+                setCalendarSettings((current) => ({
+                  ...current,
+                  defaultLocation: event.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+              placeholder="Gym or studio address"
+            />
+          </label>
+          <label className="block text-xs text-white/50">
+            Default Zoom link
+            <input
+              type="url"
+              value={calendarSettings.defaultZoomUrl}
+              onChange={(event) =>
+                setCalendarSettings((current) => ({
+                  ...current,
+                  defaultZoomUrl: event.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+              placeholder="https://zoom.us/j/…"
+            />
+          </label>
+          <label className="block text-xs text-white/50">
+            Default WhatsApp invite link
+            <input
+              type="url"
+              value={calendarSettings.defaultWhatsappUrl}
+              onChange={(event) =>
+                setCalendarSettings((current) => ({
+                  ...current,
+                  defaultWhatsappUrl: event.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+              placeholder="https://wa.me/…"
+            />
+          </label>
+          <label className="block text-xs text-white/50">
+            Time zone
+            <input
+              value={calendarSettings.timeZone}
+              onChange={(event) =>
+                setCalendarSettings((current) => ({
+                  ...current,
+                  timeZone: event.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+              placeholder="Europe/London"
+            />
+          </label>
+          {calendarSettings.googleConnected ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--brand-diet)]/30 p-3 text-xs">
+              <span>
+                Google connected
+                {calendarSettings.googleEmail
+                  ? `: ${calendarSettings.googleEmail}`
+                  : ""}
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  const response = await authFetch(
+                    "/api/coach/calendar/settings",
+                    { method: "DELETE" },
+                    getHeaders,
+                  );
+                  if (response.ok) {
+                    setCalendarSettings((current) => ({
+                      ...current,
+                      googleConnected: false,
+                      googleEmail: null,
+                    }));
+                  }
+                }}
+                className="text-red-300"
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={!calendarSettings.googleConfigured}
+              onClick={async () => {
+                const response = await authFetch(
+                  "/api/coach/calendar/google/connect",
+                  {},
+                  getHeaders,
+                );
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.url) {
+                  window.location.assign(data.url);
+                } else {
+                  setCalendarError(
+                    data.error ?? "Google Calendar is not configured.",
+                  );
+                }
+              }}
+              className="rounded-xl border border-white/20 px-4 py-2.5 text-sm text-white/90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Connect Google Calendar
+            </button>
+          )}
+          {!calendarSettings.googleConfigured && (
+            <p className="text-xs text-amber-300/80">
+              Add Google OAuth credentials to the server environment to enable
+              connection.
+            </p>
+          )}
+          {calendarError && (
+            <p className="text-xs text-red-400">{calendarError}</p>
+          )}
+        </section>
+
+        <section className="space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
           <h2 className="font-heading text-sm">{coachCopy.broadcastTitle}</h2>
           <p className="text-xs text-white/50">{coachCopy.broadcastHint}</p>
           <textarea
@@ -154,19 +342,27 @@ function CoachSettingsContent() {
             type="button"
             onClick={async () => {
               const res = await authFetch("/api/coach/user-guide", {}, getHeaders);
-              if (!res.ok) return;
+              if (!res.ok) {
+                setGuideError("Could not download the guide. Please try again.");
+                return;
+              }
+              setGuideError(null);
               const blob = await res.blob();
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
               a.download = "abstrack-how-to-guide.pdf";
+              a.rel = "noopener";
+              document.body.appendChild(a);
               a.click();
-              URL.revokeObjectURL(url);
+              a.remove();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
             }}
             className="rounded-xl border border-white/20 px-4 py-2.5 text-sm text-white/90 hover:bg-white/5"
           >
             Download how-to guide (PDF)
           </button>
+          {guideError && <p className="text-xs text-red-400">{guideError}</p>}
         </section>
 
         <div className="flex items-center gap-3">

@@ -1,11 +1,22 @@
-# Test results
+# Test results (latest)
 
-**Last run:** 2026-07-26 (local)
+**Date:** 2026-07-26  
+**Vitest:** 119 passed (27 files) — includes appointments, PDF how-to guide API, create-pdf-document  
+**Scope:** coach nav, calendar/booking, plan delivery tabs, PDF download fix, Montserrat typography
 
+```powershell
+cd web
+npm run test
 ```
-Vitest: 23 files, 103 tests passed
+
+E2E (optional, port 3011):
+
+```powershell
+npm run test:e2e
 ```
 
-Includes plan-delivery API integration, template vars, PDF plan pack (grocery table), coach how-to guide PDF.
+New coverage in this batch:
 
-E2E not re-run in this batch (Playwright optional).
+- `lib/pdf/create-pdf-document.test.ts` — pdfkit loads via Node require
+- `tests/api/integration.test.ts` — `GET /api/coach/user-guide` (coach PDF + member 403)
+- `tests/e2e/coach-flow.spec.ts` — top nav, plan delivery tabs, how-to guide download

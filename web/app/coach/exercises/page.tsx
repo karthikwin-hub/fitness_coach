@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { RequireAuth } from "@/components/auth/require-auth";
+import { CoachPlanDeliveryNav } from "@/components/coach/coach-plan-delivery-nav";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
 
 type Exercise = {
@@ -101,11 +101,11 @@ export default function ExercisesPage() {
     <RequireAuth roles={["coach", "platform_admin"]}>
       <div className="min-h-dvh bg-[var(--brand-dark)] text-white">
         <header className="border-b border-white/10 px-4 py-4">
-          <Link href="/coach/plans" className="text-xs text-white/50">
-            ← Plans
-          </Link>
           <h1 className="font-heading text-xl">Exercise catalog</h1>
           <p className="text-sm text-white/60">Tap an exercise to edit. Used in training builder.</p>
+          <div className="mt-4">
+            <CoachPlanDeliveryNav />
+          </div>
         </header>
         <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
           {message && (

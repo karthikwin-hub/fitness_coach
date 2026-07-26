@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Dumbbell, Salad, MessageCircle } from "lucide-react";
+import {
+  LayoutDashboard,
+  Dumbbell,
+  Salad,
+  MessageCircle,
+  CalendarDays,
+} from "lucide-react";
 
 const tabs = [
   { href: "/member", label: "Dashboard", icon: LayoutDashboard },
   { href: "/member/workouts", label: "Workouts", icon: Dumbbell },
   { href: "/member/nutrition", label: "Nutrition", icon: Salad },
+  { href: "/member/appointments", label: "Booking", icon: CalendarDays },
   { href: "/member/messages", label: "Messages", icon: MessageCircle },
 ];
 

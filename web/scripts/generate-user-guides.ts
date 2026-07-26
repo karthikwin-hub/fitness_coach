@@ -143,12 +143,33 @@ const guides: Guide[] = [
           "Coach note appears on member dashboards only when active — not required daily.",
         ],
         steps: [
-          "Open Settings from the Command center header",
+          "Open Settings from the top navigation bar (visible on every coach screen)",
           "Choose Dual or Single accent mode; pick colors",
+          "Configure calendar defaults and optional Google Calendar connection",
           "Enter an optional coach note (text) and optional audio URL",
           "Click Save settings — members see the note on their dashboard",
+          "Download how-to guide (PDF) for a plain-language reference",
         ],
         links: [{ label: "Coach settings", path: "/coach/settings" }],
+      },
+      {
+        title: "3b. Calendar & appointments",
+        body: [
+          "Custom in-app calendar for client appointments — not a Cal.com embed.",
+          "Block one-off times, whole days/weeks, or recurring weekdays (e.g. every Sunday).",
+          "Meeting types: in person, Google Meet (auto when Google connected), Zoom, WhatsApp, or none.",
+          "Optional Google Calendar OAuth mirrors appointments and blocked time to your Google calendar.",
+        ],
+        steps: [
+          "Open Calendar from the top navigation bar",
+          "Drag-select on the week grid to create an appointment or block time",
+          "Set meeting type, location, and join link defaults under Settings",
+          "Connect Google Calendar under Settings for Meet links and busy-time sync",
+        ],
+        links: [
+          { label: "Coach calendar", path: "/coach/calendar" },
+          { label: "Coach settings", path: "/coach/settings" },
+        ],
       },
       {
         title: "4. Member roster & profiles",
@@ -158,7 +179,7 @@ const guides: Guide[] = [
           "Open a full editable profile: contact, program dates, program phases, goals, health, coach notes.",
         ],
         steps: [
-          "Open Members from the Command center header or Plan delivery page",
+          "Open Members from the top navigation bar or Plan delivery → Clients tab",
           "Use tabs: Active clients | Paused / inactive | New enquiries",
           "Click a client to open their profile",
           "Set program start/end dates and edit program phase labels and date ranges",
@@ -175,6 +196,8 @@ const guides: Guide[] = [
         title: "5. Plan delivery",
         body: [
           "Build and publish weekly training and nutrition plans for each client.",
+          "Plan delivery tabs (Clients, Content blocks, Exercise catalog, Pilot metrics) stay visible on every plan-delivery screen.",
+          "When editing a client's plans, the page shows their name so you always know who you are working on.",
           "Use gym or home templates for a full week, then personalise.",
           "After publish, Prepare delivery to send one PDF pack by email, WhatsApp, or link.",
         ],
@@ -242,6 +265,7 @@ const guides: Guide[] = [
         links: [
           { label: "Command center", path: "/coach" },
           { label: "Coach settings", path: "/coach/settings" },
+          { label: "Calendar", path: "/coach/calendar" },
           { label: "Members", path: "/coach/members" },
           { label: "Plan delivery", path: "/coach/plans" },
           { label: "Content blocks", path: "/coach/content-blocks" },
@@ -335,12 +359,26 @@ const guides: Guide[] = [
         links: [{ label: "Nutrition", path: "/member/nutrition" }],
       },
       {
-        title: "6. Messages",
+        title: "6. Appointments",
+        body: [
+          "Book 30-minute slots with your coach. Choose one or more consecutive slots (30, 60, or 90 minutes).",
+          "After booking you receive email confirmation with an ICS calendar file and an Add to Google Calendar link.",
+          "Reschedule or cancel from the Appointments page. Join links appear for Google Meet, Zoom, or WhatsApp when configured.",
+        ],
+        steps: [
+          "Open Appointments in the bottom nav",
+          "Pick an available day and time slot",
+          "Confirm booking — check email for calendar invite",
+        ],
+        links: [{ label: "Appointments", path: "/member/appointments" }],
+      },
+      {
+        title: "7. Messages",
         body: ["Messaging with your coach."],
         links: [{ label: "Messages", path: "/member/messages" }],
       },
       {
-        title: "7. Switch persona (local dev)",
+        title: "8. Switch persona (local dev)",
         steps: [
           "Open /login?switch=1 to clear the current session",
           "Choose Member — Demo, Hetal, Avinash, Shruti, or New (no plans)",
@@ -354,6 +392,7 @@ const guides: Guide[] = [
           { label: "Check-in", path: "/member/check-in" },
           { label: "Workouts", path: "/member/workouts" },
           { label: "Nutrition", path: "/member/nutrition" },
+          { label: "Appointments", path: "/member/appointments" },
           { label: "Messages", path: "/member/messages" },
           { label: "Sign in", path: "/login" },
         ],

@@ -33,6 +33,20 @@ export const checkInStatusEnum = pgEnum("check_in_status", [
 
 export const planStatusEnum = pgEnum("plan_status", ["draft", "published"]);
 
+export const appointmentStatusEnum = pgEnum("appointment_status", [
+  "booked",
+  "cancelled",
+  "completed",
+]);
+
+export const meetingTypeEnum = pgEnum("meeting_type", [
+  "none",
+  "in_person",
+  "google_meet",
+  "zoom",
+  "whatsapp",
+]);
+
 export const planTypeEnum = pgEnum("plan_type", ["training", "nutrition"]);
 
 export const contentBlockCategoryEnum = pgEnum("content_block_category", [
@@ -530,6 +544,124 @@ export const coachBroadcasts = pgTable("coach_broadcasts", {
     .notNull(),
 });
 
+export const appointments = pgTable(
+  "appointments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    coachId: uuid("coach_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    title: text("title"),
+    notes: text("notes"),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    status: appointmentStatusEnum("status").notNull().default("booked"),
+    meetingType: meetingTypeEnum("meeting_type").notNull().default("none"),
+    location: text("location"),
+    joinUrl: text("join_url"),
+    googleEventId: text("google_event_id"),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("appointments_tenant_coach_start_idx").on(
+      t.tenantId,
+      t.coachId,
+      t.startsAt,
+    ),
+    index("appointments_tenant_member_start_idx").on(
+      t.tenantId,
+      t.memberId,
+      t.startsAt,
+    ),
+  ],
+);
+
+export const availabilityBlocks = pgTable(
+  "availability_blocks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    coachId: uuid("coach_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reason: text("reason"),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    googleEventId: text("google_event_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("availability_blocks_tenant_coach_start_idx").on(
+      t.tenantId,
+      t.coachId,
+      t.startsAt,
+    ),
+  ],
+);
+
+export const availabilityRules = pgTable(
+  "availability_rules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    coachId: uuid("coach_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    weekday: integer("weekday").notNull(),
+    reason: text("reason"),
+    startsOn: date("starts_on").notNull(),
+    endsOn: date("ends_on"),
+    googleEventId: text("google_event_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("availability_rules_tenant_coach_idx").on(t.tenantId, t.coachId),
+  ],
+);
+
+export const coachCalendarSettings = pgTable("coach_calendar_settings", {
+  coachId: uuid("coach_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  preferredMeetingType: meetingTypeEnum("preferred_meeting_type")
+    .notNull()
+    .default("none"),
+  defaultLocation: text("default_location"),
+  defaultZoomUrl: text("default_zoom_url"),
+  defaultWhatsappUrl: text("default_whatsapp_url"),
+  timeZone: text("time_zone").notNull().default("Europe/London"),
+  googleRefreshToken: text("google_refresh_token"),
+  googleCalendarId: text("google_calendar_id").notNull().default("primary"),
+  googleEmail: text("google_email"),
+  googleConnectedAt: timestamp("google_connected_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export type Tenant = typeof tenants.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Member = typeof members.$inferSelect;
@@ -544,3 +676,7 @@ export type Message = typeof messages.$inferSelect;
 export type FoodDiaryEntry = typeof foodDiaryEntries.$inferSelect;
 export type MemberNutritionSettings = typeof memberNutritionSettings.$inferSelect;
 export type CoachBroadcast = typeof coachBroadcasts.$inferSelect;
+export type Appointment = typeof appointments.$inferSelect;
+export type AvailabilityBlock = typeof availabilityBlocks.$inferSelect;
+export type AvailabilityRule = typeof availabilityRules.$inferSelect;
+export type CoachCalendarSettings = typeof coachCalendarSettings.$inferSelect;

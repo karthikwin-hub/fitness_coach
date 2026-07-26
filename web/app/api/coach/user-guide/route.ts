@@ -9,14 +9,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const buffer = await renderCoachHowtoGuidePdf();
-  return new NextResponse(new Uint8Array(buffer), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition":
-        'attachment; filename="abstrack-how-to-guide.pdf"',
-      "Cache-Control": "private, no-store",
-    },
-  });
+  try {
+    const buffer = await renderCoachHowtoGuidePdf();
+    return new NextResponse(new Uint8Array(buffer), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition":
+          'attachment; filename="abstrack-how-to-guide.pdf"',
+        "Cache-Control": "private, no-store",
+      },
+    });
+  } catch (err) {
+    console.error("[user-guide] PDF render failed", err);
+    return NextResponse.json({ error: "Could not generate guide" }, { status: 500 });
+  }
 }

@@ -481,3 +481,29 @@ describe.skipIf(!hasDatabase())("API /api/plan-deliveries", () => {
     expect(coachProbe.status).toBe(403);
   });
 });
+
+describe.skipIf(!hasDatabase())("API /api/coach/user-guide", () => {
+  it("returns PDF for coach", async () => {
+    const { GET } = await import("@/app/api/coach/user-guide/route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/coach/user-guide", {
+        headers: COACH_AUTH,
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+    const buf = Buffer.from(await res.arrayBuffer());
+    expect(buf.subarray(0, 4).toString("utf8")).toBe("%PDF");
+    expect(buf.length).toBeGreaterThan(800);
+  });
+
+  it("forbids members", async () => {
+    const { GET } = await import("@/app/api/coach/user-guide/route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/coach/user-guide", {
+        headers: MEMBER_AUTH,
+      }),
+    );
+    expect(res.status).toBe(403);
+  });
+});

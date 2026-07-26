@@ -45,15 +45,6 @@ body {
   scroll-snap-stop: always;
 }
 
-/* Coach editorial typography */
-.coach-shell .font-display,
-.coach-shell h1.font-heading,
-.coach-shell h2.font-heading {
-  font-family: var(--font-display), Georgia, "Times New Roman", serif;
-  font-weight: 400;
-  letter-spacing: -0.02em;
-}
-
 /* Atmospheric surfaces (selective) */
 .coach-atmosphere {
   background:

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RequireAuth } from "@/components/auth/require-auth";
+import { CoachPlanDeliveryNav } from "@/components/coach/coach-plan-delivery-nav";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
+import { formatMemberName } from "@/lib/members/types";
 
 type PlanRow = { id: string; weekNumber: number; status: string };
 
@@ -44,9 +46,10 @@ export default function MemberPlanHubPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [clientName, setClientName] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [t, n, d] = await Promise.all([
+    const [t, n, d, profile] = await Promise.all([
       authFetch(`/api/training-plans?memberId=${memberId}`, {}, getHeaders).then((r) =>
         r.json(),
       ),
@@ -56,10 +59,23 @@ export default function MemberPlanHubPage() {
       authFetch(`/api/plan-deliveries?memberId=${memberId}`, {}, getHeaders).then((r) =>
         r.json(),
       ),
+      authFetch(`/api/members/${memberId}`, {}, getHeaders).then((r) =>
+        r.ok ? r.json() : null,
+      ),
     ]);
     setTrainingPlans(Array.isArray(t) ? t : []);
     setNutritionPlans(Array.isArray(n) ? n : []);
     setDeliveries(d.deliveries ?? []);
+    if (profile) {
+      setClientName(
+        formatMemberName({
+          firstName: profile.firstName ?? null,
+          lastName: profile.lastName ?? null,
+          displayName: profile.displayName ?? null,
+          email: profile.email ?? "",
+        }),
+      );
+    }
   }, [memberId, getHeaders]);
 
   useEffect(() => {
@@ -198,17 +214,27 @@ export default function MemberPlanHubPage() {
     <RequireAuth roles={["coach", "platform_admin"]}>
       <div className="min-h-dvh bg-[var(--brand-dark)] text-white">
         <header className="border-b border-white/10 px-4 py-4">
-          <Link href="/coach/plans" className="text-xs text-white/50">
-            ← All clients
-          </Link>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="font-heading text-xl">Client plans</h1>
+          <p className="text-xs text-[var(--brand-diet)]">
+            Plan delivery for {clientName ?? "client"}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="font-heading text-xl">
+                {clientName ? `${clientName}'s plans` : "Client plans"}
+              </h1>
+              <p className="text-sm text-white/60">
+                Build, publish, and deliver this client&apos;s training and nutrition weeks
+              </p>
+            </div>
             <Link
               href={`/coach/members/${memberId}`}
               className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white/70"
             >
               View profile
             </Link>
+          </div>
+          <div className="mt-4">
+            <CoachPlanDeliveryNav />
           </div>
         </header>
         <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
