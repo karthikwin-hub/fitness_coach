@@ -28,6 +28,7 @@ const SECTIONS: Section[] = [
       "Members: open a client’s profile to see goals, health notes, program dates, and messages.",
       "Calendar: view appointments, book clients, and block times, days, weeks, or recurring weekdays.",
       "Plan delivery: pick a client from the Clients tab, then build or update training and nutrition for the week.",
+      "Vault programs: edit self-paced catalog pricing, publish programs, and storefront hero copy at /coach/vault.",
       "Templates: use + Gym template or + Home template to start from a full week, then tweak for that person.",
       "Publish: when the week looks right, Save & publish training and nutrition.",
       "Send the plan: on the client plan page, Prepare delivery → Preview PDF, email, WhatsApp, or copy the link.",
@@ -44,6 +45,19 @@ const SECTIONS: Section[] = [
       "Preview the PDF — cover, guidelines, workouts, nutrition, grocery table.",
       "Email sends a link (needs email configured). WhatsApp opens a ready-to-send message.",
       "The link lets the client open the plan without signing in. They sign in to log workouts and food.",
+    ],
+  },
+  {
+    heading: "Vault programs (self-paced storefront)",
+    intro:
+      "Separate from 1-on-1 coaching — sell themed fitness + nutrition packs to prospects who are not ready for weekly calls.",
+    bullets: [
+      "Public catalog: /programs — hero, testimonials, press features, and six signature program cards.",
+      "Deep links: /vault/[program-slug] for ads (e.g. StayFit for Busy Professionals).",
+      "Phase 1: Buy Now joins a waitlist (checkout comes in Phase 2).",
+      "Coach admin: Plan delivery → Vault programs — edit titles, pricing (INR/USD), includes, publish toggle.",
+      "Storefront panel: edit hero headline, trust stat, and coach story shown on /programs.",
+      "Preview storefront anytime by opening /programs in a new tab.",
     ],
   },
   {

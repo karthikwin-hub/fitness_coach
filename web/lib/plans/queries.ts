@@ -139,8 +139,24 @@ export async function getTrainingPlanById(planId: string) {
 
   if (!plan) return null;
 
+  const blockIds = (plan.blockIdsJson as string[]) ?? [];
+  const blocks = await hydratePlanBlocks(blockIds);
   const days = await hydrateTrainingPlanStructure(plan.id);
-  return { ...plan, days };
+  return { ...plan, blocks, days };
+}
+
+export async function getNutritionPlanById(planId: string) {
+  const [plan] = await db
+    .select()
+    .from(nutritionPlans)
+    .where(eq(nutritionPlans.id, planId))
+    .limit(1);
+
+  if (!plan) return null;
+
+  const blockIds = (plan.blockIdsJson as string[]) ?? [];
+  const blocks = await hydratePlanBlocks(blockIds);
+  return { ...plan, blocks };
 }
 
 export async function getPublishedNutritionPlan(memberId: string) {

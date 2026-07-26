@@ -217,7 +217,27 @@ const guides: Guide[] = [
         ],
       },
       {
-        title: "5b. How-to guide PDF",
+        title: "5b. Vault programs (storefront)",
+        body: [
+          "Manage the public /programs catalog — self-paced packs for prospects not ready for 1-on-1 coaching.",
+          "Six demo families are seeded (busy professionals, post-delivery, weight loss, core, nutrition course, travel).",
+          "Buy Now uses waitlist until Stripe checkout (Phase 2).",
+        ],
+        steps: [
+          "Open Plan delivery → Vault programs (or /coach/vault)",
+          "Expand Storefront copy to edit hero headline, trust stat, and coach story",
+          "Expand a program to edit title, description, publish toggle, and SKU pricing",
+          "Save program / Save pricing / Save storefront",
+          "Preview at /programs and /vault/[slug]",
+        ],
+        links: [
+          { label: "Vault admin", path: "/coach/vault" },
+          { label: "Public catalog", path: "/programs" },
+          { label: "Example deep link", path: "/vault/stay-fit-busy-professionals" },
+        ],
+      },
+      {
+        title: "5c. How-to guide PDF",
         body: [
           "Download a plain-language guide covering coach, member, and new-member journeys from Settings.",
         ],
@@ -412,11 +432,13 @@ const guides: Guide[] = [
         ],
         steps: [
           "Visit the landing page",
+          "Optional: browse self-paced programs at /programs (no sign-in required)",
           "Optional: read the philosophy pillars",
           "Start the qualifying quiz",
         ],
         links: [
           { label: "Landing page", path: "/" },
+          { label: "Self-paced programs", path: "/programs" },
           { label: "Philosophy", path: "/philosophy" },
           { label: "Qualifying quiz", path: "/quiz" },
         ],

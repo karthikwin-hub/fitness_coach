@@ -27,13 +27,26 @@ type LeadRow = {
   createdAt: string;
 };
 
-type Tab = "active" | "paused" | "enquiries";
+type Tab = "active" | "paused" | "enquiries" | "progress";
+
+type ProgressRow = {
+  memberId: string;
+  name: string;
+  status: string;
+  windowLabel: string;
+  checkInsInWindow: number;
+  latestTrainingWeek: number | null;
+  latestNutritionWeek: number | null;
+  compliancePct: number;
+  streakDays: number;
+};
 
 export function CoachMembersView() {
   const getHeaders = useAuthHeaders();
   const [tab, setTab] = useState<Tab>("active");
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,8 +54,9 @@ export function CoachMembersView() {
       authFetch("/api/members", {}, getHeaders).then((r) => r.json()),
       authFetch("/api/members/alerts", {}, getHeaders).then((r) => r.json()),
       authFetch("/api/leads", {}, getHeaders).then((r) => r.json()),
+      authFetch("/api/members/progress", {}, getHeaders).then((r) => r.json()),
     ])
-      .then(([memberRows, alertsBody, leadRows]) => {
+      .then(([memberRows, alertsBody, leadRows, progressBody]) => {
         const trendsByMember = (alertsBody.trendsByMember ?? {}) as Record<
           string,
           { alerts?: Array<{ code: string; message: string }> }
@@ -54,6 +68,7 @@ export function CoachMembersView() {
           })),
         );
         setLeads(leadRows);
+        setProgress(progressBody.members ?? []);
       })
       .finally(() => setLoading(false));
   }, [getHeaders]);
@@ -69,6 +84,11 @@ export function CoachMembersView() {
       id: "enquiries",
       label: "New enquiries",
       count: leads.length + leadMembers.length,
+    },
+    {
+      id: "progress",
+      label: "Progress",
+      count: progress.length,
     },
   ];
 
@@ -149,6 +169,39 @@ export function CoachMembersView() {
               </ul>
             )}
           </section>
+        </div>
+      )}
+
+      {tab === "progress" && (
+        <div className="space-y-2">
+          {progress.length === 0 ? (
+            <p className="text-sm text-white/40">No client progress data yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {progress.map((row) => (
+                <li key={row.memberId}>
+                  <Link
+                    href={`/coach/members/${row.memberId}?tab=journey`}
+                    className="block rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4 hover:border-[var(--brand-diet)]/40"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{row.name}</span>
+                      <span className="text-xs uppercase text-white/40">{row.status}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--brand-diet)]">{row.windowLabel}</p>
+                    <p className="mt-1 text-xs text-white/50">
+                      {row.checkInsInWindow} check-ins this period · Training wk{" "}
+                      {row.latestTrainingWeek ?? "—"} · Nutrition wk{" "}
+                      {row.latestNutritionWeek ?? "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-white/40">
+                      {row.compliancePct}% compliance · {row.streakDays}d streak
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

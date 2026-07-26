@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser, isCoach } from "@/lib/auth/server";
 import { getMemberByUserId, getMemberById } from "@/lib/members/queries";
 import {
+  healMemberCoachId,
+  resolveCoachMemberAccess,
+} from "@/lib/members/coach-access";
+import {
   createAppointment,
   getCalendarSettings,
   hasConflict,
@@ -161,8 +165,15 @@ export async function POST(request: NextRequest) {
     if (!member) {
       return NextResponse.json({ error: "Member not found" }, { status: 404 });
     }
-    if (user.role !== "platform_admin" && member.coachId !== user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const access = await resolveCoachMemberAccess(user, member);
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: access.reason ?? "Forbidden" },
+        { status: 403 },
+      );
+    }
+    if (access.shouldHealCoachId) {
+      await healMemberCoachId(member.id, user.tenantId, user.id);
     }
     coachId = user.id;
     memberId = member.id;

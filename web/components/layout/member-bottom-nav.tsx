@@ -10,8 +10,11 @@ import {
   CalendarDays,
 } from "lucide-react";
 
+import { TrendingUp } from "lucide-react";
+
 const tabs = [
   { href: "/member", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/member/progress", label: "Progress", icon: TrendingUp },
   { href: "/member/workouts", label: "Workouts", icon: Dumbbell },
   { href: "/member/nutrition", label: "Nutrition", icon: Salad },
   { href: "/member/appointments", label: "Booking", icon: CalendarDays },

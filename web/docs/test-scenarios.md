@@ -11,7 +11,7 @@ Requirements traceability for implemented features. Sources: agreed plan (`.curs
 
 | ID | Requirement ref | Persona | Preconditions | Steps | Expected result | Type | Priority | Expected status |
 |---|---|---|---|---|---|---|---|---|
-| TC-FM01-001 | FM-01, Flow A step 1 | Prospect | None | Open `/` | Abs-Track brand, tagline, "Find Your Fitness Path" CTA | E2E | P0 | Pass |
+| TC-FM01-001 | FM-01, Flow A step 1 | Prospect | None | Open `/` | Abs-Track brand, tagline, coaching + programs CTAs | E2E | P0 | Pass |
 | TC-FM01-002 | FM-01, Flow A step 1 | Prospect | On `/` | Click "Find Your Fitness Path" | Navigate to `/philosophy` | E2E | P0 | Pass |
 | TC-FM01-003 | FM-01, 3 pillars | Prospect | On `/philosophy` | Read page | Nutrition First, Sustainable Movement, Data-Driven Accountability | E2E | P0 | Pass |
 | TC-FM01-004 | FM-01, CTA to quiz | Prospect | On `/philosophy` | Click quiz link | Navigate to `/quiz` | E2E | P0 | Pass |
@@ -28,7 +28,14 @@ Requirements traceability for implemented features. Sources: agreed plan (`.curs
 | TC-FM02-009 | FM-02 Cal.com embed | Prospect | High intent outcome | Inspect booking UI | Cal.com iframe embed (not external link only) | Manual | P1 | Partial |
 | TC-FM02-010 | FM-02 email capture | Prospect | Quiz complete | Check form | Email collected before submit | Manual | P1 | Partial |
 | TC-FM06-001 | FM-06 waitlist | Prospect | Low intent outcome | Complete quiz | Waitlist copy shown; no checkout | E2E | P2 | Deferred |
-| TC-FM06-002 | FM-06 vault DB | System | Low intent | Check DB | Row in `vault_waitlist` | Manual | P2 | Deferred |
+| TC-FM06-002 | FM-06 vault DB | System | Low intent | Check DB | Row in `vault_waitlist` | API | P1 | Pass |
+| TC-VAULT-001 | Vault catalog | Prospect | DB seeded | GET `/api/vault/catalog?tenantSlug=abstrack` | ≥6 published families with SKUs | API | P0 | Pass |
+| TC-VAULT-002 | Vault detail | Prospect | DB seeded | GET `/api/vault/families/sustainable-weight-loss` | Program detail + heroJson | API | P0 | Pass |
+| TC-VAULT-003 | Vault storefront UI | Prospect | Dev server | Open `/programs` | Hero, testimonials, press, 6 program cards | Manual | P0 | Pass |
+| TC-VAULT-004 | Vault waitlist CTA | Prospect | On `/vault/[slug]` | Submit email on Buy Now | Row in `vault_waitlist` with location slug | API | P1 | Pass |
+| TC-VAULT-005 | Coach vault admin | Coach | Dev coach login | Open `/coach/vault` | Edit pricing, storefront copy | Manual | P1 | Pass |
+| TC-VAULT-006 | Coach catalog settings | Coach | DB seeded | GET `/api/coach/vault/catalog-settings` | Marketing JSON with hero + testimonials | API | P0 | Pass |
+| TC-VAULT-007 | Vault checkout | Prospect | On product page | Click Buy Now | Stripe/Razorpay checkout | E2E | P2 | Deferred |
 
 ---
 

@@ -136,6 +136,82 @@ describe.skipIf(!hasDatabase())("API /api/vault-waitlist", () => {
     const body = await res.json();
     expect(body.id).toBeTruthy();
   });
+
+  it("persists waitlist with program location slug", async () => {
+    const req = new NextRequest("http://localhost/api/vault-waitlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenantSlug: "abstrack",
+        email: "vault-program-waitlist@example.com",
+        location: "sustainable-weight-loss/6-month",
+      }),
+    });
+
+    const res = await postVaultWaitlist(req);
+    expect(res.status).toBe(200);
+  });
+});
+
+describe.skipIf(!hasDatabase())("API /api/vault/catalog", () => {
+  it("returns published program families for tenant", async () => {
+    const { GET } = await import("@/app/api/vault/catalog/route");
+    const req = new NextRequest("http://localhost/api/vault/catalog?tenantSlug=abstrack");
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.families)).toBe(true);
+    expect(body.families.length).toBeGreaterThanOrEqual(6);
+    const slugs = body.families.map((f: { slug: string }) => f.slug);
+    expect(slugs).toContain("stay-fit-busy-professionals");
+    expect(slugs).toContain("sustainable-weight-loss");
+    const first = body.families[0];
+    expect(first.products.length).toBeGreaterThan(0);
+    expect(first.products[0].salePriceInr).toBeGreaterThan(0);
+  });
+});
+
+describe.skipIf(!hasDatabase())("API /api/vault/families/[slug]", () => {
+  it("returns program detail with SKUs", async () => {
+    const { GET } = await import("@/app/api/vault/families/[slug]/route");
+    const req = new NextRequest(
+      "http://localhost/api/vault/families/sustainable-weight-loss?tenantSlug=abstrack",
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ slug: "sustainable-weight-loss" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.slug).toBe("sustainable-weight-loss");
+    expect(body.products.length).toBeGreaterThan(0);
+    expect(body.heroJson?.isForYou?.length).toBeGreaterThan(0);
+  });
+
+  it("returns 404 for unknown slug", async () => {
+    const { GET } = await import("@/app/api/vault/families/[slug]/route");
+    const req = new NextRequest(
+      "http://localhost/api/vault/families/not-a-real-program?tenantSlug=abstrack",
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ slug: "not-a-real-program" }),
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe.skipIf(!hasDatabase())("API /api/coach/vault/catalog-settings", () => {
+  it("returns storefront marketing for coach", async () => {
+    const { GET } = await import("@/app/api/coach/vault/catalog-settings/route");
+    const req = new NextRequest("http://localhost/api/coach/vault/catalog-settings", {
+      headers: COACH_AUTH,
+    });
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.heroHeadline).toBeTruthy();
+    expect(body.testimonials.length).toBeGreaterThan(0);
+    expect(body.pressFeatures.length).toBeGreaterThan(0);
+  });
 });
 
 describe.skipIf(!hasDatabase())("API /api/check-ins", () => {
@@ -505,5 +581,109 @@ describe.skipIf(!hasDatabase())("API /api/coach/user-guide", () => {
       }),
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe.skipIf(!hasDatabase())("API /api/appointments coach booking", () => {
+  it("coach can book for a tenant member", async () => {
+    const { GET: getMembers } = await import("@/app/api/members/route");
+    const membersRes = await getMembers(
+      new NextRequest("http://localhost/api/members", { headers: COACH_AUTH }),
+    );
+    const members = await membersRes.json();
+    const member = members.find(
+      (m: { email: string }) => m.email === "avinash@abstrack.local",
+    );
+    expect(member?.id).toBeTruthy();
+
+    const start = new Date(Date.now() + (8 + (Date.now() % 720)) * 86400_000);
+    start.setHours(11, 0, 0, 0);
+    const end = new Date(start.getTime() + 60 * 60_000);
+
+    const { POST } = await import("@/app/api/appointments/route");
+    const res = await POST(
+      new NextRequest("http://localhost/api/appointments", {
+        method: "POST",
+        headers: { ...COACH_AUTH, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberId: member.id,
+          startsAt: start.toISOString(),
+          endsAt: end.toISOString(),
+          meetingType: "none",
+          title: "Integration test session",
+        }),
+      }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.memberId).toBe(member.id);
+  });
+});
+
+describe.skipIf(!hasDatabase())("API member program journey", () => {
+  async function avinashId() {
+    const { GET: getMembers } = await import("@/app/api/members/route");
+    const membersRes = await getMembers(
+      new NextRequest("http://localhost/api/members", { headers: COACH_AUTH }),
+    );
+    const members = await membersRes.json();
+    return members.find((m: { email: string }) => m.email === "avinash@abstrack.local")
+      ?.id as string;
+  }
+
+  it("coach can load member journey with windows", async () => {
+    const memberId = await avinashId();
+    expect(memberId).toBeTruthy();
+
+    const { GET } = await import("@/app/api/members/[memberId]/journey/route");
+    const res = await GET(
+      new NextRequest(`http://localhost/api/members/${memberId}/journey`, {
+        headers: COACH_AUTH,
+      }),
+      { params: Promise.resolve({ memberId }) },
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.window.totalWindows).toBeGreaterThan(0);
+    expect(body.member.name).toContain("Avinash");
+    expect(Array.isArray(body.checkIns)).toBe(true);
+  });
+
+  it("member can load own journey", async () => {
+    const { GET } = await import("@/app/api/members/me/journey/route");
+    const res = await GET(new NextRequest("http://localhost/api/members/me/journey", {
+      headers: MEMBER_AUTH,
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.window).toBeTruthy();
+    expect(body.member.coachNotes).toBeUndefined();
+  });
+
+  it("coach progress roster lists clients", async () => {
+    const { GET } = await import("@/app/api/members/progress/route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/members/progress", {
+        headers: COACH_AUTH,
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.members.length).toBeGreaterThan(0);
+    expect(body.members[0].windowLabel).toBeTruthy();
+  });
+
+  it("navigates to an earlier journey window", async () => {
+    const memberId = await avinashId();
+    const { GET } = await import("@/app/api/members/[memberId]/journey/route");
+    const res = await GET(
+      new NextRequest(`http://localhost/api/members/${memberId}/journey?windowIndex=0`, {
+        headers: COACH_AUTH,
+      }),
+      { params: Promise.resolve({ memberId }) },
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.window.index).toBe(0);
   });
 });

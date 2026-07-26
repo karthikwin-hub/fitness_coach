@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  isCoachingOnlyPath,
+  isVaultPublicPath,
+  resolveAppSurface,
+} from "@/lib/app-surface";
 import { subdomainFromHost } from "@/lib/tenant/resolver";
 
 const RATE_LIMIT = 10;
@@ -42,6 +47,26 @@ export function middleware(request: NextRequest) {
   }
 
   const pathname = request.nextUrl.pathname;
+  const host = request.headers.get("host");
+  const surface = resolveAppSurface(host, pathname);
+  requestHeaders.set("x-app-surface", surface);
+
+  const coachingBase = process.env.COACHING_PUBLIC_URL?.replace(/\/$/, "");
+  const vaultBase = process.env.VAULT_PUBLIC_URL?.replace(/\/$/, "");
+
+  if (surface === "vault" && pathname === "/" && vaultBase) {
+    return NextResponse.redirect(new URL("/programs", vaultBase));
+  }
+  if (surface === "vault" && isCoachingOnlyPath(pathname) && coachingBase) {
+    return NextResponse.redirect(
+      new URL(`${pathname}${request.nextUrl.search}`, coachingBase),
+    );
+  }
+  if (surface === "coaching" && isVaultPublicPath(pathname) && vaultBase) {
+    return NextResponse.redirect(
+      new URL(`${pathname}${request.nextUrl.search}`, vaultBase),
+    );
+  }
 
   if (pathname.startsWith("/p/")) {
     const ip = getClientIp(request);

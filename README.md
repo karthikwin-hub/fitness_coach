@@ -73,12 +73,34 @@ Full checklist: [docs/firebase-production-setup.md](docs/firebase-production-set
 | `/philosophy` | FM-01 story pillars |
 | `/quiz` | FM-02 qualifying quiz |
 | `/login` | Google Sign-In (or dev persona picker) |
+| `/programs` | **Vault storefront** — FitMoms-style catalog: hero, testimonials, press, 6 signature programs |
+| `/vault/[slug]` | Program detail — duration SKUs, pricing (INR/USD), waitlist “Buy Now” (Phase 2 = checkout) |
+
+### Vault storefront (passive content subscriber — Phase 1)
+
+Self-paced program catalog separate from 1-on-1 coaching. Ad-friendly landing for Facebook/Instagram campaigns.
+
+| Path | Description |
+|------|-------------|
+| `/programs` | Public catalog — marketing sections + 6 demo program families |
+| `/vault/stay-fit-busy-professionals` | Deep link example — plan picker + waitlist signup |
+| `/api/vault/catalog` | Public JSON catalog |
+| `/api/vault/families/[slug]` | Public program detail |
+
+**Demo programs (seeded):** StayFit for Busy Professionals, Post-Delivery Reset, Sustainable Weight Loss, Core & Abs Foundations, Nutrition Essentials, Travel-Proof Fitness.
+
+**Coach admin:** `/coach/vault` — edit program copy, SKU pricing, publish toggle, storefront hero/trust stat/coach story.
+
+**Phase 2 (not yet):** Stripe/Razorpay checkout, `vault_customer` role, `/vault/dashboard`.
+
+Optional dual-domain env: `COACHING_HOSTS`, `VAULT_HOSTS`, `COACHING_PUBLIC_URL`, `VAULT_PUBLIC_URL` (see `.env.example`).
 
 ### Member PWA
 
 | Path | Description |
 |------|-------------|
 | `/member` | Dashboard — streak, compliance, program phase strip, optional coach note, today's workout |
+| `/member/progress` | **My program progress** — 3-month windows, plans, check-ins, deliveries |
 | `/member/check-in` | Weight, sleep, energy, soreness, meal photo; optional add to food diary |
 | `/member/workouts` | Today's session; set completion persists across visits |
 | `/member/nutrition` | Macro targets, native food diary (+ search/barcode), coach content blocks |
@@ -94,15 +116,17 @@ Persistent **top navigation** on every coach screen: Command center, Members, Ca
 | `/coach` | Command center — check-in queue, sparklines, trend alerts, AI review, recipe drawer |
 | `/coach/calendar` | Weekly client calendar — drag-select appointments; block times, days, weeks, or recurring weekdays |
 | `/coach/settings` | Brand accents, meeting defaults, Google Calendar connection, **download how-to PDF** (coach only) |
-| `/coach/members` | Roster by status; at-risk badges from trend rules |
+| `/coach/members` | Roster by status; **Progress** tab for all clients; at-risk badges |
 | `/coach/members/[id]` | Full profile, program phases, food diary summary, check-in history, messages |
-| `/coach/plans` | Plan delivery — client list (tabs: Clients, Content blocks, Exercise catalog, Pilot metrics) |
+| `/coach/members/[id]/journey` | Program journey — 3-month windows, plans, deliveries, check-ins |
+| `/coach/plans` | Plan delivery — client list (tabs: Clients, Content blocks, Exercise catalog, **Vault programs**, Pilot metrics) |
 | `/coach/plans/[id]` | Client plan hub — shows client name; publish, **Prepare delivery**, email / WhatsApp / link |
 | `/coach/plans/[id]/training` | Training builder — gym/home templates, edit, Save & publish |
 | `/coach/plans/[id]/nutrition` | Nutrition builder — macros, blocks, Save & publish |
 | `/coach/pilot` | Helna pilot metrics (<5 min publish target) |
 | `/coach/content-blocks` | Reusable content library (Abs-Track diary primary; MFP optional) |
 | `/coach/exercises` | Exercise catalog — expand, edit, delete |
+| `/coach/vault` | Vault programs — catalog pricing, publish, storefront copy |
 
 ### Public & platform
 
@@ -167,6 +191,15 @@ Env (optional): `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL`. Without Resend, 
 - Content blocks skip the shared “Hetal Focus” health list — health notes are built per member at delivery time.
 - Offline sample PDFs: `cd web && npm run plans:pdf` → `docs/plan-samples/`.
 
+### Vault program catalog
+
+- **6 demo families** seeded via `seedVaultDemoCatalog` — upsert by slug (idempotent re-seed).
+- **Storefront marketing** in `vault_catalog_settings` — hero, testimonials, press features, why-choose, journey CTA.
+- **Public pages:** `/programs` and `/vault/[slug]`; Buy Now → `vault_waitlist` until checkout (Phase 2).
+- **Coach:** `/coach/vault` edits programs + storefront copy; preview at `/programs`.
+
+SQL migrations (production): `deploy/sql/2026-07-26-vault-products.sql`, `deploy/sql/2026-07-26-vault-catalog-settings.sql`.
+
 ## Stack
 
 - **Next.js 16** + Tailwind 4 — `web/`
@@ -209,8 +242,8 @@ npm run test:e2e      # Playwright — builds + serves on :3011
 
 | Suite | Location | Notes |
 |-------|----------|-------|
-| Unit | `web/lib/**/*.test.ts` | Brand, trends, plan delivery tokens/vars, PDF packs + how-to guide, appointments slots, nutrition, quiz |
-| API | `web/tests/api/integration.test.ts` | Leads, members, check-ins, **plan-deliveries**, messages (requires Postgres) |
+| Unit | `web/lib/**/*.test.ts` | Brand, trends, plan delivery tokens/vars, PDF packs + how-to guide, appointments slots, nutrition, quiz, **vault catalog marketing + pricing** |
+| API | `web/tests/api/integration.test.ts` | Leads, members, check-ins, plan-deliveries, messages, **vault catalog + waitlist** (requires Postgres) |
 | E2E | `web/tests/e2e/*.spec.ts` | Prospect, member, coach, auth flows |
 
 **Without Docker:** unit tests only:
@@ -267,11 +300,19 @@ deploy\deploy-app.ps1 `
   -EnvFile web\.env.production.local
 ```
 
-After schema changes (appointments, calendar blocks, `plan_deliveries`, exercise `slug`, template `key`, etc.), apply SQL migrations on the server **before** redeploying app code that depends on new tables/columns:
+After schema changes (appointments, calendar blocks, **vault products**, **vault catalog settings**, `plan_deliveries`, exercise `slug`, template `key`, etc.), apply SQL migrations on the server **before** redeploying app code that depends on new tables/columns:
 
 ```powershell
+deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-vault-products.sql
+deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-vault-catalog-settings.sql
 deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-appointments.sql
 deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-calendar-ux-sync.sql
+```
+
+After vault migrations, re-seed demo programs on the VM:
+
+```powershell
+deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SeedOnly
 ```
 
 Or run `npm run db:push` on the server (or via `deploy/migrate-db.ps1` without `-SqlFile`).
@@ -298,6 +339,7 @@ fitness_coach/
     │   ├── pdf/            # Plan packs + coach how-to guide
     │   ├── notify/         # Email / WhatsApp / phone helpers
     │   ├── nutrition/      # Food diary, search provider
+    │   ├── vault/          # Catalog queries, marketing types, pricing format
     │   └── db/             # Schema, seed, content blocks
     ├── tests/              # Vitest API + Playwright E2E
     └── docs/               # Test scenarios and results

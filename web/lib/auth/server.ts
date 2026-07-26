@@ -2,6 +2,11 @@ import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 import { isDevToken, DEV_TOKEN_TO_UID } from "@/lib/auth/dev-personas";
 import { isServerDevAuthEnabled } from "@/lib/auth/dev-auth-enabled";
+import {
+  isDemoLoginToken,
+  isServerDemoLoginEnabled,
+} from "@/lib/auth/demo-login-shared";
+import { resolveDemoCoachUser } from "@/lib/auth/demo-login-server";
 import { db } from "@/lib/db";
 import { users, tenants } from "@/lib/db/schema";
 
@@ -112,6 +117,9 @@ export async function getAuthUser(request: NextRequest): Promise<AuthUser | null
   if (!authHeader?.startsWith("Bearer ")) return null;
 
   const token = authHeader.slice(7);
+  if (isServerDemoLoginEnabled() && isDemoLoginToken(token)) {
+    return resolveDemoCoachUser();
+  }
   if (isServerDevAuthEnabled() && isDevToken(token)) {
     return resolveDevUser(token);
   }

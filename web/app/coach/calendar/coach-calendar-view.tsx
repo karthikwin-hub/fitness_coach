@@ -58,7 +58,27 @@ type Modal =
   | { type: "edit"; appt: Appointment }
   | { type: "block"; start: Date; end: Date }
   | { type: "recurring" }
+  | { type: "recurring-edit"; rule: AvailabilityRule }
   | null;
+
+const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+function ruleAppliesToDay(rule: AvailabilityRule, day: Date): boolean {
+  const key = localDateKey(day);
+  return (
+    rule.weekday === day.getDay() &&
+    rule.startsOn <= key &&
+    (!rule.endsOn || rule.endsOn >= key)
+  );
+}
 
 function dayIndexInWeek(date: Date, weekStart: Date): number {
   const d = new Date(date);
@@ -109,6 +129,7 @@ export function CoachCalendarView() {
     dayIdx: number;
     startIndex: number;
     endIndex: number;
+    blockMode: boolean;
   } | null>(null);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
@@ -164,6 +185,33 @@ export function CoachCalendarView() {
     setModal({ type: "create", start, end });
   }
 
+  function openBlock(day: Date, startIndex: number, endIndex = startIndex) {
+    const start = slotDate(day, Math.min(startIndex, endIndex));
+    const end = new Date(
+      slotDate(day, Math.max(startIndex, endIndex)).getTime() +
+        SLOT_MINUTES * 60_000,
+    );
+    setError(null);
+    setModal({ type: "block", start, end });
+  }
+
+  function openBlockAt(day: Date, hour = DAY_START_HOUR, durationMinutes = 60) {
+    const start = new Date(day);
+    start.setHours(hour, 0, 0, 0);
+    const end = new Date(start.getTime() + durationMinutes * 60_000);
+    setError(null);
+    setModal({ type: "block", start, end });
+  }
+
+  function openBlockNow() {
+    const now = new Date();
+    const rounded = new Date(now);
+    rounded.setMinutes(Math.ceil(rounded.getMinutes() / SLOT_MINUTES) * SLOT_MINUTES, 0, 0);
+    const end = new Date(rounded.getTime() + 60 * 60_000);
+    setError(null);
+    setModal({ type: "block", start: rounded, end });
+  }
+
   const activeAppointments = appointments.filter((a) => a.status !== "cancelled");
 
   return (
@@ -195,7 +243,7 @@ export function CoachCalendarView() {
             {formatDayLabel(days[0])} – {formatDayLabel(days[6])}
           </span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setModal({ type: "recurring" })}
@@ -205,7 +253,21 @@ export function CoachCalendarView() {
           </button>
           <button
             type="button"
+            onClick={openBlockNow}
+            className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5"
+          >
+            + Block time
+          </button>
+          <button
+            type="button"
             onClick={() => {
+              if (
+                !window.confirm(
+                  "Block the entire visible week for bookings? You can still adjust start and end times.",
+                )
+              ) {
+                return;
+              }
               setError(null);
               setModal({
                 type: "block",
@@ -215,7 +277,7 @@ export function CoachCalendarView() {
             }}
             className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5"
           >
-            Block week
+            Block whole week
           </button>
           <button
             type="button"
@@ -227,6 +289,10 @@ export function CoachCalendarView() {
         </div>
       </div>
 
+      <p className="text-xs text-white/40">
+        Drag on the grid to book. Shift+drag to block time. Click a day name to block one hour.
+      </p>
+
       {rules.length > 0 && (
         <div className="flex flex-wrap gap-2 text-xs">
           {rules.map((rule) => (
@@ -234,16 +300,13 @@ export function CoachCalendarView() {
               key={rule.id}
               className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-white/70"
             >
-              Every {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][rule.weekday]}
+              Every {WEEKDAY_NAMES[rule.weekday]}
+              {rule.reason ? ` · ${rule.reason}` : ""}
               <button
                 type="button"
-                onClick={async () => {
-                  const res = await authFetch(
-                    `/api/availability-rules/${rule.id}`,
-                    { method: "DELETE" },
-                    getHeaders,
-                  );
-                  if (res.ok) load();
+                onClick={() => {
+                  setError(null);
+                  setModal({ type: "recurring-edit", rule });
                 }}
                 className="text-red-300"
                 aria-label="Remove recurring block"
@@ -266,13 +329,9 @@ export function CoachCalendarView() {
                 <button
                   key={d.toISOString()}
                   type="button"
-                  onClick={() => {
-                    const start = new Date(d);
-                    const end = addDays(start, 1);
-                    setModal({ type: "block", start, end });
-                  }}
-                  className="px-2 py-2 text-center text-xs text-white/60"
-                  title="Block this entire day"
+                  onClick={() => openBlockAt(d, DAY_START_HOUR, 60)}
+                  className="px-2 py-2 text-center text-xs text-white/60 hover:bg-white/5"
+                  title="Block one hour on this day"
                 >
                   {formatDayLabel(d)}
                 </button>
@@ -310,8 +369,13 @@ export function CoachCalendarView() {
                     <button
                       key={index}
                       type="button"
-                      onPointerDown={() => {
-                        setDrag({ dayIdx, startIndex: index, endIndex: index });
+                      onPointerDown={(e) => {
+                        setDrag({
+                          dayIdx,
+                          startIndex: index,
+                          endIndex: index,
+                          blockMode: e.shiftKey,
+                        });
                       }}
                       onPointerEnter={() =>
                         setDrag((current) =>
@@ -322,7 +386,13 @@ export function CoachCalendarView() {
                       }
                       onPointerUp={() => {
                         if (drag?.dayIdx === dayIdx) {
-                          openCreate(day, drag.startIndex, drag.endIndex);
+                          const lo = Math.min(drag.startIndex, drag.endIndex);
+                          const hi = Math.max(drag.startIndex, drag.endIndex);
+                          if (drag.blockMode) {
+                            openBlock(day, lo, hi);
+                          } else {
+                            openCreate(day, lo, hi);
+                          }
                           setDrag(null);
                         } else {
                           openCreate(day, index);
@@ -339,16 +409,27 @@ export function CoachCalendarView() {
                     );
                   })}
 
-                  {rules.some(
-                    (rule) =>
-                      rule.weekday === day.getDay() &&
-                      rule.startsOn <= localDateKey(day) &&
-                      (!rule.endsOn || rule.endsOn >= localDateKey(day)),
-                  ) && (
-                    <div className="absolute inset-0 z-10 bg-white/10 bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(255,255,255,0.06)_6px,rgba(255,255,255,0.06)_12px)] p-2 text-xs text-white/60">
-                      Recurring day off
-                    </div>
-                  )}
+                  {(() => {
+                    const dayRules = rules.filter((rule) =>
+                      ruleAppliesToDay(rule, day),
+                    );
+                    if (dayRules.length === 0) return null;
+                    const rule = dayRules[0];
+                    const label = rule.reason ?? "Recurring day off";
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError(null);
+                          setModal({ type: "recurring-edit", rule });
+                        }}
+                        title={`${label} — click to manage`}
+                        className="absolute inset-0 z-10 cursor-pointer bg-white/10 bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(255,255,255,0.06)_6px,rgba(255,255,255,0.06)_12px)] p-2 text-left text-xs text-white/60 hover:bg-white/15"
+                      >
+                        {label}
+                      </button>
+                    );
+                  })()}
 
                   {blocks
                     .filter(
@@ -544,6 +625,28 @@ export function CoachCalendarView() {
             if (!res.ok) {
               const data = await res.json().catch(() => ({}));
               setError(data.error ?? "Could not create recurring block");
+              return;
+            }
+            setModal(null);
+            load();
+          }}
+        />
+      )}
+
+      {modal?.type === "recurring-edit" && (
+        <RecurringBlockEditForm
+          rule={modal.rule}
+          error={error}
+          onClose={() => setModal(null)}
+          onDelete={async (id) => {
+            const res = await authFetch(
+              `/api/availability-rules/${id}`,
+              { method: "DELETE" },
+              getHeaders,
+            );
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              setError(data.error ?? "Could not remove recurring block");
               return;
             }
             setModal(null);
@@ -910,6 +1013,21 @@ function BlockForm({
             />
           </label>
         </div>
+        <div className="flex flex-wrap gap-2">
+          {[30, 60, 90].map((minutes) => (
+            <button
+              key={minutes}
+              type="button"
+              onClick={() => {
+                const nextEnd = new Date(new Date(start).getTime() + minutes * 60_000);
+                setEnd(toDateTimeLocal(nextEnd));
+              }}
+              className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70"
+            >
+              {minutes} min
+            </button>
+          ))}
+        </div>
         <label className="block text-xs text-white/50">
           Reason (optional)
           <input
@@ -959,6 +1077,59 @@ function BlockForm({
   );
 }
 
+function RecurringBlockEditForm({
+  rule,
+  error,
+  onDelete,
+  onClose,
+}: {
+  rule: AvailabilityRule;
+  error: string | null;
+  onDelete: (id: string) => void | Promise<void>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <ModalShell title="Recurring day off" onClose={onClose}>
+      <div className="space-y-3 text-sm text-white/80">
+        <p>
+          Every <span className="text-white">{WEEKDAY_NAMES[rule.weekday]}</span>
+        </p>
+        <p className="text-xs text-white/50">
+          From {rule.startsOn}
+          {rule.endsOn ? ` until ${rule.endsOn}` : " (no end date)"}
+        </p>
+        {rule.reason && (
+          <p className="text-xs text-white/50">Reason: {rule.reason}</p>
+        )}
+        {error && <p className="text-xs text-red-400">{error}</p>}
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              await onDelete(rule.id);
+              setBusy(false);
+            }}
+            className="rounded-lg border border-red-500/40 px-3 py-2 text-sm text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+          >
+            Remove recurring block
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/70"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 function RecurringBlockForm({
   error,
   onSubmit,
@@ -973,15 +1144,6 @@ function RecurringBlockForm({
   const [endsOn, setEndsOn] = useState("");
   const [reason, setReason] = useState("Day off");
   const [busy, setBusy] = useState(false);
-  const weekdays = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
 
   return (
     <ModalShell title="Recurring day off" onClose={onClose}>
@@ -1006,7 +1168,7 @@ function RecurringBlockForm({
             onChange={(event) => setWeekday(Number(event.target.value))}
             className={fieldClass}
           >
-            {weekdays.map((day, index) => (
+            {WEEKDAY_NAMES.map((day, index) => (
               <option key={day} value={index}>
                 {day}
               </option>

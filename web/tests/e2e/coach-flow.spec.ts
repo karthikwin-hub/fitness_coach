@@ -84,4 +84,46 @@ test.describe("Flow C — Coach command center", () => {
     await page.getByRole("button", { name: /Paused/i }).click();
     await expect(page.getByText("Former Client (paused)")).toBeVisible({ timeout: 10_000 });
   });
+
+  test("TC-COACH-PROGRESS: members progress tab and journey", async ({ page }) => {
+    await page.goto("/coach/members");
+    await page.getByRole("button", { name: /Progress/i }).click();
+    await expect(page.getByText("Avinash Mehta").first()).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("link", { name: /Avinash Mehta/i }).click();
+    await expect(page).toHaveURL(/\/coach\/members\/.*\?tab=journey/);
+    await expect(page.getByRole("heading", { name: /Avinash Mehta's journey/i })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByRole("button", { name: "← Earlier" })).toBeVisible();
+  });
+
+  test("TC-COACH-APPT: coach can book appointment via API", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const membersRes = await fetch("/api/members", {
+        headers: { Authorization: "Bearer dev-local-token" },
+      });
+      const members = (await membersRes.json()) as { id: string; email: string }[];
+      const member = members.find((m) => m.email === "avinash@abstrack.local");
+      if (!member) return { ok: false, status: 0 };
+      const start = new Date(Date.now() + (9 + (Date.now() % 720)) * 86400000);
+      start.setHours(14, 0, 0, 0);
+      const end = new Date(start.getTime() + 3600000);
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer dev-local-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          memberId: member.id,
+          startsAt: start.toISOString(),
+          endsAt: end.toISOString(),
+          meetingType: "none",
+        }),
+      });
+      return { ok: res.ok, status: res.status };
+    });
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe(201);
+  });
 });

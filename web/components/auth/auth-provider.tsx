@@ -25,6 +25,13 @@ import {
   type DevPersonaId,
 } from "@/lib/auth/dev-personas";
 import { isDevAuthEnabled } from "@/lib/auth/dev-auth-enabled";
+import {
+  clearDemoCoachToken,
+  DEMO_COACH_EMAIL,
+  isClientDemoLoginEnabled,
+  readDemoCoachToken,
+  storeDemoCoachToken,
+} from "@/lib/auth/demo-login-shared";
 
 export type AppUser = {
   firebaseUid: string;
@@ -39,7 +46,9 @@ type AuthContextValue = {
   appUser: AppUser | null;
   loading: boolean;
   firebaseConfigured: boolean;
+  demoLoginEnabled: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInAsDemoCoach: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshAppUser: () => Promise<void>;
   switchDevPersona: (personaId: DevPersonaId) => void;
@@ -59,6 +68,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const firebaseConfigured = isFirebaseConfigured();
+  const demoLoginEnabled = isClientDemoLoginEnabled();
+
+  const fetchAppUserWithToken = useCallback(async (token: string) => {
+    const res = await fetch("/api/auth/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      setAppUser(await res.json());
+      return true;
+    }
+    setAppUser(null);
+    return false;
+  }, []);
 
   const fetchAppUser = useCallback(async (user: FirebaseUser | null) => {
     if (!user) {
@@ -66,48 +88,104 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     const token = await user.getIdToken();
-    const res = await fetch("/api/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      setAppUser(await res.json());
-    } else {
-      setAppUser(null);
-    }
-  }, []);
+    await fetchAppUserWithToken(token);
+  }, [fetchAppUserWithToken]);
 
   const refreshAppUser = useCallback(async () => {
-    await fetchAppUser(firebaseUser);
-  }, [firebaseUser, fetchAppUser]);
+    if (firebaseUser) {
+      await fetchAppUser(firebaseUser);
+      return;
+    }
+    const demoToken = readDemoCoachToken();
+    if (demoToken) {
+      await fetchAppUserWithToken(demoToken);
+    }
+  }, [firebaseUser, fetchAppUser, fetchAppUserWithToken]);
 
   useEffect(() => {
-    if (!firebaseConfigured) {
-      if (isDevAuthEnabled()) {
-        setAppUser(getDevAppUser());
+    async function bootstrap() {
+      const demoToken = readDemoCoachToken();
+      if (demoToken && demoLoginEnabled) {
+        const ok = await fetchAppUserWithToken(demoToken);
+        if (ok) {
+          setLoading(false);
+          return;
+        }
+        clearDemoCoachToken();
       }
-      setLoading(false);
-      return;
+
+      if (!firebaseConfigured) {
+        if (isDevAuthEnabled()) {
+          setAppUser(getDevAppUser());
+        }
+        setLoading(false);
+        return;
+      }
+
+      const auth = getClientAuth();
+      if (!auth) {
+        setLoading(false);
+        return;
+      }
+
+      const unsub = onAuthStateChanged(auth, async (user) => {
+        setFirebaseUser(user);
+        if (user) {
+          clearDemoCoachToken();
+          await fetchAppUser(user);
+        } else if (!readDemoCoachToken()) {
+          setAppUser(null);
+        }
+        setLoading(false);
+      });
+      return unsub;
     }
 
-    const auth = getClientAuth();
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
-      await fetchAppUser(user);
-      setLoading(false);
+    let unsub: (() => void) | undefined;
+    void bootstrap().then((cleanup) => {
+      unsub = cleanup;
     });
-    return () => unsub();
-  }, [firebaseConfigured, fetchAppUser]);
+    return () => unsub?.();
+  }, [firebaseConfigured, demoLoginEnabled, fetchAppUser, fetchAppUserWithToken]);
 
   const signInWithGoogle = useCallback(async () => {
     const auth = getClientAuth();
     if (!auth) throw new Error("Firebase is not configured");
+    clearDemoCoachToken();
     await signInWithPopup(auth, googleProvider);
   }, []);
+
+  const signInAsDemoCoach = useCallback(
+    async (email: string) => {
+      const auth = getClientAuth();
+      if (auth) {
+        try {
+          await firebaseSignOut(auth);
+        } catch {
+          // Continue with demo login even if Firebase sign-out fails.
+        }
+      }
+      clearDevPersonaStorage();
+
+      const res = await fetch("/api/auth/demo-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Demo sign-in failed");
+      }
+
+      const payload = (await res.json()) as {
+        user: AppUser;
+      };
+      storeDemoCoachToken();
+      setFirebaseUser(null);
+      setAppUser(payload.user);
+    },
+    [],
+  );
 
   const switchDevPersona = useCallback((personaId: DevPersonaId) => {
     storeDevPersonaId(personaId);
@@ -131,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     clearDevPersonaStorage();
+    clearDemoCoachToken();
     setFirebaseUser(null);
     setAppUser(null);
   }, []);
@@ -141,7 +220,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       appUser,
       loading,
       firebaseConfigured,
+      demoLoginEnabled,
       signInWithGoogle,
+      signInAsDemoCoach,
       signOut,
       refreshAppUser,
       switchDevPersona,
@@ -152,7 +233,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       appUser,
       loading,
       firebaseConfigured,
+      demoLoginEnabled,
       signInWithGoogle,
+      signInAsDemoCoach,
       signOut,
       refreshAppUser,
       switchDevPersona,

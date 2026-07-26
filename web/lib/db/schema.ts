@@ -201,6 +201,93 @@ export const vaultWaitlist = pgTable("vault_waitlist", {
     .notNull(),
 });
 
+export const vaultProductItemTypeEnum = pgEnum("vault_product_item_type", [
+  "video",
+  "content_block",
+  "nutrition_note",
+  "shopping_list",
+  "external_link",
+]);
+
+export const vaultProductFamilies = pgTable(
+  "vault_product_families",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    subtitle: text("subtitle"),
+    description: text("description"),
+    heroJson: jsonb("hero_json").notNull().default({}),
+    sortOrder: integer("sort_order").notNull().default(0),
+    published: boolean("published").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [unique("vault_product_families_tenant_slug").on(table.tenantId, table.slug)],
+);
+
+export const vaultProducts = pgTable(
+  "vault_products",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    familyId: uuid("family_id")
+      .notNull()
+      .references(() => vaultProductFamilies.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    label: text("label").notNull(),
+    validityDays: integer("validity_days").notNull(),
+    listPriceInr: integer("list_price_inr"),
+    salePriceInr: integer("sale_price_inr").notNull(),
+    listPriceUsd: integer("list_price_usd"),
+    salePriceUsd: integer("sale_price_usd").notNull(),
+    includesJson: jsonb("includes_json").notNull().default([]),
+    badge: text("badge"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("vault_products_family_slug").on(table.familyId, table.slug),
+  ],
+);
+
+export const vaultProductItems = pgTable("vault_product_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => vaultProducts.id, { onDelete: "cascade" }),
+  itemType: vaultProductItemTypeEnum("item_type").notNull(),
+  refId: uuid("ref_id"),
+  title: text("title").notNull(),
+  payloadJson: jsonb("payload_json").notNull().default({}),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const vaultCatalogSettings = pgTable("vault_catalog_settings", {
+  tenantId: uuid("tenant_id")
+    .primaryKey()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  marketingJson: jsonb("marketing_json").notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export const videos = pgTable("videos", {
   id: uuid("id").defaultRandom().primaryKey(),
   tenantId: uuid("tenant_id")
@@ -680,3 +767,7 @@ export type Appointment = typeof appointments.$inferSelect;
 export type AvailabilityBlock = typeof availabilityBlocks.$inferSelect;
 export type AvailabilityRule = typeof availabilityRules.$inferSelect;
 export type CoachCalendarSettings = typeof coachCalendarSettings.$inferSelect;
+export type VaultProductFamily = typeof vaultProductFamilies.$inferSelect;
+export type VaultProduct = typeof vaultProducts.$inferSelect;
+export type VaultProductItem = typeof vaultProductItems.$inferSelect;
+export type VaultCatalogSettings = typeof vaultCatalogSettings.$inferSelect;

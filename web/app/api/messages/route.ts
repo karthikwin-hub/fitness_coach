@@ -32,12 +32,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "memberId is required" }, { status: 400 });
     }
 
-    const access = await assertCoachCanMessageMember(
-      user.id,
-      memberId,
-      user.tenantId,
-      user.role === "platform_admin",
-    );
+    const access = await assertCoachCanMessageMember(user, memberId);
     if (!access.ok) {
       return NextResponse.json({ error: access.error }, { status: access.status });
     }
@@ -80,12 +75,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "memberId is required" }, { status: 400 });
     }
 
-    const access = await assertCoachCanMessageMember(
-      user.id,
-      memberId,
-      user.tenantId,
-      user.role === "platform_admin",
-    );
+    const access = await assertCoachCanMessageMember(user, memberId);
     if (!access.ok) {
       return NextResponse.json({ error: access.error }, { status: access.status });
     }

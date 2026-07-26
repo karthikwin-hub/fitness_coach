@@ -10,7 +10,7 @@ export const coachCopy = {
   noteSaved: "Saved — member can see this",
   approveHint:
     "Flagged items stay in the review queue; approved items drop off the queue but remain in history.",
-  loadError: "Could not load check-ins. Is the dev server running?",
+  loadError: "Could not load check-ins. Refresh the page or sign in again.",
   atRiskBadge: "Needs attention",
   recipeDrawerTitle: "Quick-fix recipes",
   recipeDrawerHint: "Send a recipe suggestion to the member's plan or notes.",

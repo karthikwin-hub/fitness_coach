@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useAuthHeaders, authFetch } from "@/lib/api/client";
+import { useAuthHeaders, useAuthReady, authFetch } from "@/lib/api/client";
 import { CheckInHistoryList } from "@/components/coach/check-in-history-list";
 import { ApproveButton } from "@/components/coach/approve-button";
 import { RecipeSwapDrawer } from "@/components/coach/recipe-swap-drawer";
@@ -67,6 +67,7 @@ function MealPhotoPanel({ url }: { url: string | null }) {
 
 export function CoachCommandCenter() {
   const searchParams = useSearchParams();
+  const authReady = useAuthReady();
   const getHeaders = useAuthHeaders();
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [trendsByMember, setTrendsByMember] = useState<Record<string, MemberTrendSnapshot>>({});
@@ -86,9 +87,17 @@ export function CoachCommandCenter() {
       ? `/api/check-ins?memberId=${memberFilter}`
       : "/api/check-ins";
     try {
+      const headers = await getHeaders();
+      if (!headers.Authorization) return;
+
       const res = await authFetch(url, {}, getHeaders);
       if (!res.ok) {
-        setLoadError(coachCopy.loadError);
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (res.status === 401) {
+          setLoadError("Session expired — sign out and sign in again.");
+        } else {
+          setLoadError(data.error ?? coachCopy.loadError);
+        }
         return;
       }
       const payload: CheckInsResponse = await res.json();
@@ -106,17 +115,32 @@ export function CoachCommandCenter() {
   }, [getHeaders, memberFilter]);
 
   useEffect(() => {
+    if (!authReady) return;
     loadCheckIns();
-  }, [loadCheckIns]);
+  }, [authReady, loadCheckIns]);
 
   useEffect(() => {
-    void authFetch("/api/members", {}, getHeaders)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: Array<{ id: string; displayName: string | null; email: string }>) => {
+    if (!authReady) return;
+    void (async () => {
+      const headers = await getHeaders();
+      if (!headers.Authorization) return;
+      try {
+        const res = await authFetch("/api/members", {}, getHeaders);
+        if (!res.ok) {
+          setMemberOptions([]);
+          return;
+        }
+        const rows = (await res.json()) as Array<{
+          id: string;
+          displayName: string | null;
+          email: string;
+        }>;
         setMemberOptions(rows.map((m) => [m.id, m.displayName ?? m.email] as [string, string]));
-      })
-      .catch(() => setMemberOptions([]));
-  }, [getHeaders]);
+      } catch {
+        setMemberOptions([]);
+      }
+    })();
+  }, [authReady, getHeaders]);
 
   useEffect(() => {
     setMemberFilter(searchParams.get("memberId"));

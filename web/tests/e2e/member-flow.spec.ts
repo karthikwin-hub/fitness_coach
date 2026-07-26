@@ -13,9 +13,19 @@ test.describe("Flow B — Member PWA", () => {
 
   test("TC-UX-001: bottom nav tabs present", async ({ page }) => {
     await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Progress" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Workouts" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Nutrition" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Messages" })).toBeVisible();
+  });
+
+  test("TC-MEMBER-PROGRESS: member program progress page", async ({ page }) => {
+    await page.getByRole("link", { name: "Progress" }).click();
+    await expect(page).toHaveURL(/\/member\/progress/);
+    await expect(page.getByRole("heading", { name: "My program progress" })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByRole("button", { name: "← Earlier" })).toBeVisible();
   });
 
   test("TC-FM05-001: workouts page loads", async ({ page }) => {

@@ -34,6 +34,12 @@ export default function LandingPage() {
             Find Your Fitness Path
           </Link>
           <Link
+            href="/programs"
+            className="tap-target flex items-center justify-center rounded-xl border border-[var(--brand-diet)]/40 px-6 py-4 text-center font-medium text-[var(--brand-diet)]"
+          >
+            Self-Paced Programs
+          </Link>
+          <Link
             href="/login"
             className="tap-target flex items-center justify-center rounded-xl border border-white/20 px-6 py-4 text-center font-medium text-white/90"
           >

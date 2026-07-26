@@ -25,6 +25,7 @@ const links = [
       p.startsWith("/coach/plans") ||
       p.startsWith("/coach/content-blocks") ||
       p.startsWith("/coach/exercises") ||
+      p.startsWith("/coach/vault") ||
       p.startsWith("/coach/pilot"),
   },
   {

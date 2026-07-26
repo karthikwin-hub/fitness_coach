@@ -1,6 +1,11 @@
 import { and, asc, eq, or } from "drizzle-orm";
+import type { AuthUser } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { messages } from "@/lib/db/schema";
+import {
+  healMemberCoachId,
+  resolveCoachMemberAccess,
+} from "@/lib/members/coach-access";
 import { getMemberById, getMemberByUserId } from "@/lib/members/queries";
 
 export type MessageRow = {
@@ -31,16 +36,22 @@ export async function getMemberCoachUserId(memberUserId: string, tenantId: strin
 }
 
 export async function assertCoachCanMessageMember(
-  coachUserId: string,
+  coach: AuthUser,
   memberId: string,
-  tenantId: string,
-  isPlatformAdmin: boolean,
 ) {
-  const member = await getMemberById(memberId, tenantId);
+  const member = await getMemberById(memberId, coach.tenantId);
   if (!member) return { ok: false as const, error: "Member not found", status: 404 };
 
-  if (!isPlatformAdmin && member.coachId !== coachUserId) {
-    return { ok: false as const, error: "Forbidden", status: 403 };
+  const access = await resolveCoachMemberAccess(coach, member);
+  if (!access.allowed) {
+    return {
+      ok: false as const,
+      error: access.reason ?? "Forbidden",
+      status: 403,
+    };
+  }
+  if (access.shouldHealCoachId) {
+    await healMemberCoachId(member.id, coach.tenantId, coach.id);
   }
 
   return { ok: true as const, member };

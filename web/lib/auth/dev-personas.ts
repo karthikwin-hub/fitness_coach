@@ -35,7 +35,7 @@ export const DEV_PERSONAS: DevPersona[] = [
     id: "coach",
     token: "dev-local-token",
     firebaseUid: "dev-local-user",
-    email: "coach@abstrack.local",
+    email: "helna@abstrack.com",
     displayName: "Helna (Dev Coach)",
     role: "coach",
     label: "Coach — Helna",

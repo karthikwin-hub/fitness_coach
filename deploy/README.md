@@ -7,6 +7,8 @@
 | [redeploy.bat](redeploy.bat) | Double-click / CLI redeploy to Oracle VM |
 | [deploy-app.sh](deploy-app.sh) | macOS/Linux deploy |
 | [migrate-db.ps1](migrate-db.ps1) | Push schema + seed on VM |
+| [sql/2026-07-26-vault-products.sql](sql/2026-07-26-vault-products.sql) | Vault catalog tables |
+| [sql/2026-07-26-vault-catalog-settings.sql](sql/2026-07-26-vault-catalog-settings.sql) | Storefront marketing settings |
 | [vm-setup.sh](vm-setup.sh) | One-time VM: user, Node, Docker, swap |
 | [vm-setup-caddy.sh](vm-setup-caddy.sh) | Append Caddy block for abstrack.duckdns.org |
 | [fitness-coach.service](fitness-coach.service) | systemd unit (port 8030) |

@@ -21,6 +21,9 @@ import { ABSTRACK_BRAND, type TenantBranding } from "../brand";
 import { createTrainingDays } from "../plans/training";
 import { recordPublication } from "../plans/queries";
 import { installTenantPlanDefaults } from "../plans/install-defaults";
+import { ensureJourneyDemoData } from "./seed-journey-demo";
+import { seedVaultDemoCatalog, seedVaultCatalogMarketing } from "./seed-vault";
+import { ensureMemberCoachAssignments, getCanonicalCoachId } from "../members/canonical-coach";
 import {
   GYM_W1_STRUCTURE,
   HOME_W21_STRUCTURE,
@@ -199,13 +202,17 @@ async function seed() {
     const [coach] = await db.insert(users).values({
       tenantId,
       firebaseUid: coachUid,
-      email: "coach@abstrack.local",
+      email: "helna@abstrack.com",
       displayName: "Helna",
       role: "coach",
     }).returning();
     coachId = coach.id;
   } else {
     coachId = coachRows[0].id;
+    await db
+      .update(users)
+      .set({ email: "helna@abstrack.com", displayName: "Helna" })
+      .where(eq(users.id, coachId));
   }
 
   const memberUid = "dev-local-member";
@@ -693,6 +700,14 @@ async function seed() {
   }
 
   console.log("Seed complete.");
+  const reassigned = await ensureMemberCoachAssignments(tenantId);
+  if (reassigned > 0) {
+    console.log(`Reassigned ${reassigned} member(s) to canonical coach.`);
+  }
+  const journeyCoachId = (await getCanonicalCoachId(tenantId)) ?? coachId;
+  await ensureJourneyDemoData(tenantId, journeyCoachId);
+  await seedVaultDemoCatalog(tenantId);
+  await seedVaultCatalogMarketing(tenantId);
   process.exit(0);
 }
 
