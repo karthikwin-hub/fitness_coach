@@ -15,6 +15,9 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const switching = searchParams.get("switch") === "1";
+  const nextRaw = searchParams.get("next");
+  const nextPath =
+    nextRaw && nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : null;
 
   useEffect(() => {
     if (switching) {
@@ -24,14 +27,29 @@ function LoginContent() {
 
   useEffect(() => {
     if (loading || !appUser || switching) return;
+    if (nextPath) {
+      router.replace(nextPath);
+      return;
+    }
     const persona = DEV_PERSONAS.find((p) => p.firebaseUid === appUser.firebaseUid);
-    router.replace(persona?.memberPath ?? (appUser.role === "coach" ? "/coach" : "/member"));
-  }, [loading, appUser, router, switching]);
+    router.replace(
+      persona?.memberPath ??
+        (appUser.role === "platform_admin"
+          ? "/platform"
+          : appUser.role === "coach"
+            ? "/coach"
+            : "/member"),
+    );
+  }, [loading, appUser, router, switching, nextPath]);
 
   function enterAs(personaId: DevPersonaId) {
     switchDevPersona(personaId);
+    if (nextPath) {
+      router.push(nextPath);
+      return;
+    }
     const persona = DEV_PERSONAS.find((p) => p.id === personaId)!;
-    router.push(persona.role === "coach" ? "/coach" : "/member");
+    router.push(persona.memberPath);
   }
 
   if (!loading && appUser && !switching) {
@@ -39,6 +57,7 @@ function LoginContent() {
   }
 
   const coachPersonas = DEV_PERSONAS.filter((p) => p.role === "coach");
+  const adminPersonas = DEV_PERSONAS.filter((p) => p.role === "platform_admin");
   const memberPersonas = DEV_PERSONAS.filter((p) => p.role === "member");
 
   return (
@@ -61,6 +80,23 @@ function LoginContent() {
           <p className="rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-200">
             Firebase not configured. Pick a dev persona to explore the app.
           </p>
+
+          {adminPersonas.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-xs uppercase tracking-wide text-amber-200">Platform</h2>
+              {adminPersonas.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => enterAs(p.id)}
+                  className="tap-target flex w-full flex-col items-start rounded-xl border border-amber-400/40 bg-amber-500/15 px-4 py-3 text-left font-semibold text-amber-50"
+                >
+                  {p.label}
+                  <span className="mt-0.5 text-xs font-normal opacity-80">{p.description}</span>
+                </button>
+              ))}
+            </section>
+          )}
 
           <section className="space-y-2">
             <h2 className="text-xs uppercase tracking-wide text-[var(--brand-workout)]">Coach</h2>

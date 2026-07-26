@@ -27,9 +27,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = (await request.json()) as TenantBranding;
-  const current = await getTenantBranding(user!.tenantId);
-  const merged: TenantBranding = { ...current, ...body };
-  const branding = await updateTenantBranding(user!.tenantId, merged);
+  const branding = await updateTenantBranding(user.tenantId, body);
 
   return NextResponse.json({
     branding,

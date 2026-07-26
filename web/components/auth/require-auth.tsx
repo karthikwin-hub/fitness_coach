@@ -22,7 +22,13 @@ export function RequireAuth({
       return;
     }
     if (roles && !roles.includes(appUser.role)) {
-      router.replace(appUser.role === "coach" ? "/coach" : "/member");
+      const fallback =
+        appUser.role === "platform_admin"
+          ? "/platform"
+          : appUser.role === "coach"
+            ? "/coach"
+            : "/member";
+      router.replace(fallback);
     }
   }, [appUser, loading, roles, router]);
 

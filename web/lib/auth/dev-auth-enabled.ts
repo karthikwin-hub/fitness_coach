@@ -1,5 +1,6 @@
 /** Dev persona login + tokens — local development or explicit E2E test builds only. */
 export function isDevAuthEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   return (
     process.env.NODE_ENV === "development" ||
     process.env.NEXT_PUBLIC_E2E_DEV_AUTH === "1"
@@ -8,5 +9,6 @@ export function isDevAuthEnabled(): boolean {
 
 /** Server-side dev token acceptance (runtime env, not baked into client bundle). */
 export function isServerDevAuthEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   return process.env.NODE_ENV === "development" || process.env.E2E_DEV_AUTH === "1";
 }

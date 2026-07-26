@@ -30,13 +30,27 @@ async function resolveDevUser(token: string): Promise<AuthUser | null> {
       role: users.role,
       tenantId: users.tenantId,
       tenantSlug: tenants.slug,
+      tenantStatus: tenants.status,
     })
     .from(users)
     .innerJoin(tenants, eq(users.tenantId, tenants.id))
     .where(eq(users.firebaseUid, uid))
     .limit(1);
 
-  return row ?? null;
+  if (!row) return null;
+  if (row.tenantStatus === "suspended" && row.role !== "platform_admin") {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    firebaseUid: row.firebaseUid,
+    email: row.email,
+    displayName: row.displayName,
+    role: row.role,
+    tenantId: row.tenantId,
+    tenantSlug: row.tenantSlug,
+  };
 }
 
 async function verifyFirebaseToken(token: string): Promise<AuthUser | null> {
@@ -45,7 +59,12 @@ async function verifyFirebaseToken(token: string): Promise<AuthUser | null> {
     const { getFirebaseAdminApp } = await import("@/lib/firebase/admin");
     const { provisionFirebaseUser } = await import("@/lib/auth/provision");
     const app = getFirebaseAdminApp();
-    if (!app) return null;
+    if (!app) {
+      if (process.env.NODE_ENV === "production") {
+        console.error("[auth] Firebase Admin is not configured in production");
+      }
+      return null;
+    }
 
     const decoded = await getAuth(app).verifyIdToken(token);
     const [row] = await db
@@ -57,16 +76,33 @@ async function verifyFirebaseToken(token: string): Promise<AuthUser | null> {
         role: users.role,
         tenantId: users.tenantId,
         tenantSlug: tenants.slug,
+        tenantStatus: tenants.status,
       })
       .from(users)
       .innerJoin(tenants, eq(users.tenantId, tenants.id))
       .where(eq(users.firebaseUid, decoded.uid))
       .limit(1);
 
-    if (row) return row;
+    if (row) {
+      if (row.tenantStatus === "suspended" && row.role !== "platform_admin") {
+        return null;
+      }
+      return {
+        id: row.id,
+        firebaseUid: row.firebaseUid,
+        email: row.email,
+        displayName: row.displayName,
+        role: row.role,
+        tenantId: row.tenantId,
+        tenantSlug: row.tenantSlug,
+      };
+    }
 
     return provisionFirebaseUser(decoded);
-  } catch {
+  } catch (err) {
+    console.error("[auth] Firebase token verification failed", {
+      message: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
@@ -89,4 +125,12 @@ export function isCoach(user: AuthUser): boolean {
 
 export function requireCoach(user: AuthUser | null): user is AuthUser {
   return user !== null && isCoach(user);
+}
+
+export function isPlatformAdmin(user: AuthUser): boolean {
+  return user.role === "platform_admin";
+}
+
+export function requirePlatformAdmin(user: AuthUser | null): user is AuthUser {
+  return user !== null && isPlatformAdmin(user);
 }

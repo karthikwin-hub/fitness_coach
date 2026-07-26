@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { getAuthUser, isCoach, requireCoach } from "@/lib/auth/server";
+import { checkInCreateSchema } from "@/lib/check-ins/schemas";
 import { enrichCoachCheckIns } from "@/lib/coach/check-in-enrichment";
 import { listCheckInsForMember, listCheckInsForTenant } from "@/lib/check-ins/queries";
 import { db } from "@/lib/db";
 import { checkIns, members, tenants } from "@/lib/db/schema";
 import { analyzeMealPhoto } from "@/lib/gemini/meal-analysis";
+import { getMemberByUserId } from "@/lib/members/queries";
+import { syncMemberStats } from "@/lib/members/sync-stats";
 import { getPublishedNutritionPlan } from "@/lib/plans/queries";
 
 export async function GET(request: NextRequest) {
@@ -24,12 +27,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ items, trendsByMember });
   }
 
-  const [member] = await db
-    .select()
-    .from(members)
-    .where(eq(members.userId, user.id))
-    .limit(1);
-
+  const member = await getMemberByUserId(user.id, user.tenantId);
   if (!member) {
     return NextResponse.json({ error: "Member not found" }, { status: 404 });
   }
@@ -50,13 +48,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const [member] = await db
-    .select()
-    .from(members)
-    .where(eq(members.userId, user.id))
-    .limit(1);
+  const parsed = checkInCreateSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid check-in payload" }, { status: 400 });
+  }
+  if (parsed.data._hp) {
+    return NextResponse.json({ error: "Invalid check-in payload" }, { status: 400 });
+  }
 
+  const body = parsed.data;
+  const member = await getMemberByUserId(user.id, user.tenantId);
   if (!member) {
     return NextResponse.json({ error: "Member not found" }, { status: 404 });
   }
@@ -107,6 +108,8 @@ export async function POST(request: NextRequest) {
       status,
     })
     .returning();
+
+  await syncMemberStats(member.id);
 
   return NextResponse.json(checkIn, { status: 201 });
 }

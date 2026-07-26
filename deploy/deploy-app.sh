@@ -2,7 +2,7 @@
 # Build Next.js standalone locally and upload to Oracle VM (macOS/Linux).
 #
 # Usage:
-#   ./deploy/deploy-app.sh ubuntu@140.245.206.149 ~/.ssh/oracle-trade-ideas.key web/.env.production.local
+#   ./deploy/deploy-app.sh ubuntu@129.154.47.155 ~/.ssh/oracle-fitness-coach web/.env.production.local
 set -euo pipefail
 
 REMOTE="${1:?Usage: deploy-app.sh <ubuntu@ip> <key-path> [env-file]}"

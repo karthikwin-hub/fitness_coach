@@ -7,8 +7,8 @@
 #
 # Usage:
 #   deploy/deploy-app.ps1 `
-#     -Remote ubuntu@140.245.206.149 `
-#     -KeyPath $env:USERPROFILE\.ssh\oracle-trade-ideas.key `
+#     -Remote ubuntu@129.154.47.155 `
+#     -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach `
 #     -EnvFile web\.env.production.local
 param(
     [Parameter(Mandatory = $true)]
@@ -18,6 +18,8 @@ param(
     [string]$KeyPath,
 
     [string]$EnvFile = "web\.env.production.local",
+
+    [switch]$SkipInstall,
 
     [switch]$SkipBuild,
 
@@ -43,12 +45,20 @@ if (-not (Test-Path $EnvFile)) {
 Push-Location $WebDir
 try {
     if (-not $SkipBuild) {
-        Write-Host "==> Installing dependencies"
-        npm ci
-        if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
+        if (-not $SkipInstall) {
+            Write-Host "==> Installing dependencies"
+            npm ci
+            if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
+        } else {
+            Write-Host "==> Using existing node_modules (-SkipInstall)"
+        }
 
         Write-Host "==> Building Next.js (standalone) with $EnvFile"
-        Copy-Item -Force (Join-Path $RootDir $EnvFile) ".env.production.local"
+        $BuildEnvSource = (Resolve-Path (Join-Path $RootDir $EnvFile)).Path
+        $BuildEnvTarget = (Join-Path $WebDir ".env.production.local")
+        if ($BuildEnvSource -ne $BuildEnvTarget) {
+            Copy-Item -Force $BuildEnvSource $BuildEnvTarget
+        }
         npm run build
         if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
 
@@ -72,20 +82,29 @@ try {
         if (-not (Test-Path $LocalStage)) { throw "No staged build - run without -SkipBuild first" }
     }
 
-    Write-Host "==> Uploading to ${Remote}:~/$StagingDir"
-    ssh -i $KeyPath $Remote "rm -rf ~/$StagingDir && mkdir -p ~/$StagingDir"
-    scp -i $KeyPath -r (Join-Path $LocalStage "*") "${Remote}:${StagingDir}/"
-    scp -i $KeyPath -r (Join-Path $LocalStage ".next") "${Remote}:${StagingDir}/"
+    Write-Host "==> Compressing standalone bundle"
+    $LocalArchive = Join-Path $env:TEMP "$StagingDir.tar.gz"
+    if (Test-Path $LocalArchive) { Remove-Item -Force $LocalArchive }
+    tar -czf $LocalArchive -C $LocalStage .
+    if ($LASTEXITCODE -ne 0) { throw "bundle compression failed" }
+
+    Write-Host "==> Uploading archive to $Remote"
+    scp -i $KeyPath $LocalArchive "${Remote}:${StagingDir}.tar.gz"
     if ($LASTEXITCODE -ne 0) { throw "scp upload failed" }
 
     Write-Host "==> Installing on VM and restarting service"
-    ssh -i $KeyPath $Remote @"
+    $RemoteInstall = @"
+rm -rf ~/$StagingDir &&
+mkdir -p ~/$StagingDir &&
+tar -xzf ~/$StagingDir.tar.gz -C ~/$StagingDir &&
+rm -f ~/$StagingDir.tar.gz &&
 sudo rsync -a --delete ~/$StagingDir/ $RemoteApp/ &&
 sudo chown -R fitness-coach:fitness-coach $RemoteApp &&
 rm -rf ~/$StagingDir &&
 sudo systemctl restart fitness-coach &&
 sudo systemctl is-active fitness-coach
 "@
+    ($RemoteInstall -replace "`r", "") | ssh -i $KeyPath $Remote "bash -s"
     if ($LASTEXITCODE -ne 0) { throw "remote install/restart failed" }
 
     Write-Host "==> Done. Open https://abstrack.duckdns.org (after DuckDNS + Caddy are configured)."

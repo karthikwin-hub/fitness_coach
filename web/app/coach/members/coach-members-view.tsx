@@ -39,10 +39,20 @@ export function CoachMembersView() {
   useEffect(() => {
     Promise.all([
       authFetch("/api/members", {}, getHeaders).then((r) => r.json()),
+      authFetch("/api/members/alerts", {}, getHeaders).then((r) => r.json()),
       authFetch("/api/leads", {}, getHeaders).then((r) => r.json()),
     ])
-      .then(([memberRows, leadRows]) => {
-        setMembers(memberRows);
+      .then(([memberRows, alertsBody, leadRows]) => {
+        const trendsByMember = (alertsBody.trendsByMember ?? {}) as Record<
+          string,
+          { alerts?: Array<{ code: string; message: string }> }
+        >;
+        setMembers(
+          memberRows.map((member: MemberRow) => ({
+            ...member,
+            trendAlerts: trendsByMember[member.id]?.alerts ?? [],
+          })),
+        );
         setLeads(leadRows);
       })
       .finally(() => setLoading(false));

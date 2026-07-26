@@ -87,11 +87,22 @@ export default function QuizPage() {
     const withEmail = { ...finalAnswers, email: emailValue.trim() };
     const { intentScore, routedTo } = routeQuizOutcome(withEmail);
 
+    let tenantSlug = "abstrack";
+    try {
+      const brandingRes = await fetch("/api/public/branding");
+      if (brandingRes.ok) {
+        const brandingBody = await brandingRes.json();
+        if (brandingBody.slug) tenantSlug = brandingBody.slug;
+      }
+    } catch {
+      // keep fallback
+    }
+
     await fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        tenantSlug: "abstrack",
+        tenantSlug,
         email: emailValue.trim(),
         responses: withEmail,
         intentScore,
@@ -104,7 +115,7 @@ export default function QuizPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenantSlug: "abstrack",
+          tenantSlug,
           email: emailValue.trim(),
           location: finalAnswers.location,
         }),

@@ -36,6 +36,78 @@ async function hydratePlanBlocks(blockIds: string[]) {
   return blocks;
 }
 
+type SectionExerciseRow = {
+  sectionId: string;
+  id: string;
+  supersetGroup: string | null;
+  reps: string | null;
+  sets: number | null;
+  sortOrder: number;
+  exercise: typeof exercises.$inferSelect;
+};
+
+async function hydrateTrainingPlanStructure(planId: string) {
+  const days = await db
+    .select()
+    .from(trainingDays)
+    .where(eq(trainingDays.planId, planId))
+    .orderBy(asc(trainingDays.dayIndex));
+
+  if (days.length === 0) return [];
+
+  const dayIds = days.map((day) => day.id);
+  const sections = await db
+    .select()
+    .from(trainingSections)
+    .where(inArray(trainingSections.dayId, dayIds))
+    .orderBy(asc(trainingSections.sortOrder));
+
+  const sectionIds = sections.map((section) => section.id);
+  let exerciseRows: SectionExerciseRow[] = [];
+
+  if (sectionIds.length > 0) {
+    exerciseRows = await db
+      .select({
+        sectionId: trainingSectionExercises.sectionId,
+        id: trainingSectionExercises.id,
+        supersetGroup: trainingSectionExercises.supersetGroup,
+        reps: trainingSectionExercises.reps,
+        sets: trainingSectionExercises.sets,
+        sortOrder: trainingSectionExercises.sortOrder,
+        exercise: exercises,
+      })
+      .from(trainingSectionExercises)
+      .innerJoin(exercises, eq(trainingSectionExercises.exerciseId, exercises.id))
+      .where(inArray(trainingSectionExercises.sectionId, sectionIds))
+      .orderBy(asc(trainingSectionExercises.sortOrder));
+  }
+
+  const exercisesBySection = new Map<string, SectionExerciseRow[]>();
+  for (const row of exerciseRows) {
+    const list = exercisesBySection.get(row.sectionId) ?? [];
+    list.push(row);
+    exercisesBySection.set(row.sectionId, list);
+  }
+
+  const sectionsByDay = new Map<
+    string,
+    Array<(typeof sections)[number] & { exercises: SectionExerciseRow[] }>
+  >();
+  for (const section of sections) {
+    const list = sectionsByDay.get(section.dayId) ?? [];
+    list.push({
+      ...section,
+      exercises: exercisesBySection.get(section.id) ?? [],
+    });
+    sectionsByDay.set(section.dayId, list);
+  }
+
+  return days.map((day) => ({
+    ...day,
+    sections: sectionsByDay.get(day.id) ?? [],
+  }));
+}
+
 export async function getPublishedTrainingPlan(memberId: string) {
   const [plan] = await db
     .select()
@@ -53,49 +125,9 @@ export async function getPublishedTrainingPlan(memberId: string) {
 
   const blockIds = (plan.blockIdsJson as string[]) ?? [];
   const blocks = await hydratePlanBlocks(blockIds);
+  const days = await hydrateTrainingPlanStructure(plan.id);
 
-  const days = await db
-    .select()
-    .from(trainingDays)
-    .where(eq(trainingDays.planId, plan.id))
-    .orderBy(asc(trainingDays.dayIndex));
-
-  const daysWithSections = await Promise.all(
-    days.map(async (day) => {
-      const sections = await db
-        .select()
-        .from(trainingSections)
-        .where(eq(trainingSections.dayId, day.id))
-        .orderBy(asc(trainingSections.sortOrder));
-
-      const sectionsWithExercises = await Promise.all(
-        sections.map(async (section) => {
-          const rows = await db
-            .select({
-              id: trainingSectionExercises.id,
-              supersetGroup: trainingSectionExercises.supersetGroup,
-              reps: trainingSectionExercises.reps,
-              sets: trainingSectionExercises.sets,
-              sortOrder: trainingSectionExercises.sortOrder,
-              exercise: exercises,
-            })
-            .from(trainingSectionExercises)
-            .innerJoin(
-              exercises,
-              eq(trainingSectionExercises.exerciseId, exercises.id),
-            )
-            .where(eq(trainingSectionExercises.sectionId, section.id))
-            .orderBy(asc(trainingSectionExercises.sortOrder));
-
-          return { ...section, exercises: rows };
-        }),
-      );
-
-      return { ...day, sections: sectionsWithExercises };
-    }),
-  );
-
-  return { ...plan, blocks, days: daysWithSections };
+  return { ...plan, blocks, days };
 }
 
 export async function getTrainingPlanById(planId: string) {
@@ -107,48 +139,8 @@ export async function getTrainingPlanById(planId: string) {
 
   if (!plan) return null;
 
-  const days = await db
-    .select()
-    .from(trainingDays)
-    .where(eq(trainingDays.planId, plan.id))
-    .orderBy(asc(trainingDays.dayIndex));
-
-  const daysWithSections = await Promise.all(
-    days.map(async (day) => {
-      const sections = await db
-        .select()
-        .from(trainingSections)
-        .where(eq(trainingSections.dayId, day.id))
-        .orderBy(asc(trainingSections.sortOrder));
-
-      const sectionsWithExercises = await Promise.all(
-        sections.map(async (section) => {
-          const rows = await db
-            .select({
-              id: trainingSectionExercises.id,
-              supersetGroup: trainingSectionExercises.supersetGroup,
-              reps: trainingSectionExercises.reps,
-              sets: trainingSectionExercises.sets,
-              sortOrder: trainingSectionExercises.sortOrder,
-              exercise: exercises,
-            })
-            .from(trainingSectionExercises)
-            .innerJoin(
-              exercises,
-              eq(trainingSectionExercises.exerciseId, exercises.id),
-            )
-            .where(eq(trainingSectionExercises.sectionId, section.id))
-            .orderBy(asc(trainingSectionExercises.sortOrder));
-
-          return { ...section, exercises: rows };
-        }),
-      );
-
-      return { ...day, sections: sectionsWithExercises };
-    }),
-  );
-
-  return { ...plan, days: daysWithSections };
+  const days = await hydrateTrainingPlanStructure(plan.id);
+  return { ...plan, days };
 }
 
 export async function getPublishedNutritionPlan(memberId: string) {
@@ -173,15 +165,6 @@ export async function getPublishedNutritionPlan(memberId: string) {
   }
 
   return { ...plan, blocks };
-}
-
-export async function getMemberByUserId(userId: string) {
-  const [member] = await db
-    .select()
-    .from(members)
-    .where(eq(members.userId, userId))
-    .limit(1);
-  return member ?? null;
 }
 
 export async function getMembersWithUsers(tenantId: string) {

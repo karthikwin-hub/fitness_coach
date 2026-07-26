@@ -89,16 +89,23 @@ Full checklist: [docs/firebase-production-setup.md](docs/firebase-production-set
 | Path | Description |
 |------|-------------|
 | `/coach` | Command center — check-in queue, sparklines, trend alerts, AI review, recipe drawer |
-| `/coach/settings` | Brand accent (dual/single), optional tenant-wide coach note (text + audio URL) |
+| `/coach/settings` | Brand accents, optional coach note, **download how-to PDF** (coach only) |
 | `/coach/members` | Roster by status; at-risk badges from trend rules |
 | `/coach/members/[id]` | Full profile, program phases, food diary summary, check-in history, messages |
 | `/coach/plans` | Plan delivery — client list |
-| `/coach/plans/[id]` | Client plan hub |
-| `/coach/plans/[id]/training` | Training builder — edit, clone, guideline blocks, Save & publish |
-| `/coach/plans/[id]/nutrition` | Nutrition builder — macros, blocks, create week 1, Save & publish |
+| `/coach/plans/[id]` | Client plan hub — publish, **Prepare delivery**, email / WhatsApp / link |
+| `/coach/plans/[id]/training` | Training builder — gym/home templates, edit, Save & publish |
+| `/coach/plans/[id]/nutrition` | Nutrition builder — macros, blocks, Save & publish |
 | `/coach/pilot` | Helna pilot metrics (<5 min publish target) |
 | `/coach/content-blocks` | Reusable content library (Abs-Track diary primary; MFP optional) |
 | `/coach/exercises` | Exercise catalog — expand, edit, delete |
+
+### Public & platform
+
+| Path | Description |
+|------|-------------|
+| `/p/[token]` | Public read-only plan viewer (magic link from delivery) |
+| `/platform` | Platform admin — multi-tenant console (ops) |
 
 ## Key features
 
@@ -128,9 +135,22 @@ Full checklist: [docs/firebase-production-setup.md](docs/firebase-production-set
 
 1. `/coach/plans` → select client
 2. Open **training** or **nutrition** builder
-3. **Clone → next week** (timer starts) or **+ Gym/Home template** / **+ Create week 1**
-4. Edit exercises/macros inline → **Save** or **Save & publish**
+3. **Clone → next week** or **+ Gym / Home template** (full ASIS-depth week from catalog) / **+ Create week 1**
+4. Edit exercises/macros → **Save** or **Save & publish**
 5. **Publish** logs assembly time to `/coach/pilot` (target under 5 minutes)
+6. Client plan hub → **Prepare delivery** (one PDF pack for published training + nutrition)
+7. **Preview PDF** / **Send email** / **Send on WhatsApp** (click-to-send) / **Copy link**
+8. Members open `/p/<token>` or the PDF (QR on cover) without signing in; sign in to log workouts
+9. In-app: banner on `/member` + PDF download on workouts/nutrition
+10. PDF resolves `{{client_name}}` etc., member-specific health notes, grocery as a one-page table
+
+Env (optional): `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL`. Without Resend, email dry-runs to the server log.
+
+### Templates & content defaults
+
+- New tenants (and re-seed) install a shared **exercise catalog** (slug-keyed) and **gym/home** training templates via `installTenantPlanDefaults`.
+- Content blocks skip the shared “Hetal Focus” health list — health notes are built per member at delivery time.
+- Offline sample PDFs: `cd web && npm run plans:pdf` → `docs/plan-samples/`.
 
 ## Stack
 
@@ -138,19 +158,22 @@ Full checklist: [docs/firebase-production-setup.md](docs/firebase-production-set
 - **PostgreSQL** via Docker + Drizzle ORM
 - **Firebase Auth** (Google) + Storage
 - **Gemini Flash** for meal photo analysis
+- **pdfkit** — plan packs + coach how-to guide
 - **Framer Motion** — coach routes only (dynamic import)
 - **YouTube embeds** for exercise videos
 
 ## User guides (PDF)
 
-Generate printable guides for coach, member, and dev sign-on:
+**Coach Settings** → **Download how-to guide (PDF)** — simple non-technical guide covering coach, active member, and new-member journeys (coach-only API).
+
+Also generate printable detailed guides:
 
 ```powershell
 cd web
 npm run guides:pdf
 ```
 
-Output: `docs/guides/` (four PDFs — dev sign-on, coach, member, new member/prospect).
+Output: `docs/guides/` (dev sign-on, coach, member, new member/prospect, plus `abstrack-how-to-guide.pdf`).
 
 Optional staging URLs:
 
@@ -171,8 +194,8 @@ npm run test:e2e      # Playwright — builds + serves on :3011
 
 | Suite | Location | Notes |
 |-------|----------|-------|
-| Unit | `web/lib/**/*.test.ts` | Brand, trends, program phases, nutrition diary, quiz, compliance, UUID |
-| API | `web/tests/api/integration.test.ts` | Leads, members, check-ins, messages (requires Postgres) |
+| Unit | `web/lib/**/*.test.ts` | Brand, trends, plan delivery tokens/vars, PDF packs, how-to guide, nutrition, quiz |
+| API | `web/tests/api/integration.test.ts` | Leads, members, check-ins, **plan-deliveries**, messages (requires Postgres) |
 | E2E | `web/tests/e2e/*.spec.ts` | Prospect, member, coach, auth flows |
 
 **Without Docker:** unit tests only:
@@ -181,7 +204,7 @@ npm run test:e2e      # Playwright — builds + serves on :3011
 npx vitest run --exclude tests/api/integration.test.ts
 ```
 
-Scenario matrix: [web/docs/test-scenarios.md](web/docs/test-scenarios.md)  
+Scenario matrix: [web/docs/test-scenarios.md](web/docs/test-scenarios.md) (includes **Batch — Plan delivery + templates**)  
 Latest run: [web/docs/test-results.md](web/docs/test-results.md)
 
 E2E uses port **3011** via `scripts/e2e-server.mjs` (production build with Firebase cleared + `E2E_DEV_AUTH=1`). Runs alongside dev on **3010**.
@@ -224,12 +247,12 @@ Or explicitly:
 
 ```powershell
 deploy\deploy-app.ps1 `
-  -Remote ubuntu@140.245.206.149 `
-  -KeyPath $env:USERPROFILE\.ssh\oracle-trade-ideas.key `
+  -Remote ubuntu@129.154.47.155 `
+  -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach `
   -EnvFile web\.env.production.local
 ```
 
-After schema changes, run `npm run db:push` on the server (or via tunnel) before redeploying app code that depends on new tables/columns.
+After schema changes (`plan_deliveries`, exercise `slug`, template `key`, etc.), run `npm run db:push` on the server (or via `deploy/migrate-db.ps1`) **before** redeploying app code that depends on new tables/columns.
 
 ## Project layout
 
@@ -238,16 +261,20 @@ fitness_coach/
 ├── deploy/                 # Caddy, systemd, redeploy.bat, deploy scripts
 ├── docs/
 │   ├── guides/             # PDF user guides (generated)
+│   ├── plan-samples/       # Sample plan-pack PDFs
 │   ├── firebase-production-setup.md
 │   └── oracle-vm-hosting-setup.md
 ├── docker-compose.yml      # Local Postgres (:5435)
 ├── documents/reference/    # Helna PDF plans
 └── web/
-    ├── app/                # Routes + API
+    ├── app/                # Routes + API (incl. /p/[token], /platform)
     ├── components/         # Auth, coach, member, food diary, brand
     ├── lib/
     │   ├── copy/           # Helna copy bible (coach + member strings)
     │   ├── coach/          # Trend alerts, broadcasts, check-in enrichment
+    │   ├── plans/          # Templates, delivery snapshot/tokens, install defaults
+    │   ├── pdf/            # Plan packs + coach how-to guide
+    │   ├── notify/         # Email / WhatsApp / phone helpers
     │   ├── nutrition/      # Food diary, search provider
     │   └── db/             # Schema, seed, content blocks
     ├── tests/              # Vitest API + Playwright E2E

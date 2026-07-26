@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { BrandStyles } from "@/components/brand/brand-styles";
-import { ABSTRACK_BRAND, brandingToCssVars } from "@/lib/brand";
+import { ABSTRACK_BRAND, PLATFORM_DEFAULT_BRANDING, brandingToCssVars } from "@/lib/brand";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -12,13 +12,13 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: `${ABSTRACK_BRAND.name} by Helna`,
-  description: ABSTRACK_BRAND.tagline,
+  title: PLATFORM_DEFAULT_BRANDING.name,
+  description: PLATFORM_DEFAULT_BRANDING.tagline,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: ABSTRACK_BRAND.name,
+    title: PLATFORM_DEFAULT_BRANDING.name,
   },
 };
 
@@ -39,7 +39,7 @@ export default function RootLayout({
     <html lang="en" className={`${montserrat.variable} h-full`}>
       <body
         className="min-h-full antialiased"
-        style={brandingToCssVars()}
+        style={brandingToCssVars(PLATFORM_DEFAULT_BRANDING)}
       >
         <AuthProvider>
           <BrandStyles />

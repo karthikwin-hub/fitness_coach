@@ -1,4 +1,5 @@
 export type DevPersonaId =
+  | "platform-admin"
   | "coach"
   | "member-demo"
   | "member-hetal"
@@ -12,13 +13,24 @@ export type DevPersona = {
   firebaseUid: string;
   email: string;
   displayName: string;
-  role: "coach" | "member";
+  role: "platform_admin" | "coach" | "member";
   label: string;
   description: string;
   memberPath: string;
 };
 
 export const DEV_PERSONAS: DevPersona[] = [
+  {
+    id: "platform-admin",
+    token: "dev-local-platform-admin",
+    firebaseUid: "dev-platform-admin",
+    email: "admin@platform.local",
+    displayName: "Platform Admin",
+    role: "platform_admin",
+    label: "Platform Admin",
+    description: "Tenant console — create and manage all tenants",
+    memberPath: "/platform",
+  },
   {
     id: "coach",
     token: "dev-local-token",
@@ -114,7 +126,16 @@ export function readStoredDevPersonaId(): DevPersonaId {
 
 export function storeDevPersonaId(id: DevPersonaId) {
   localStorage.setItem("devPersona", id);
-  localStorage.setItem("devRole", id === "coach" ? "coach" : "member");
+  localStorage.setItem(
+    "devRole",
+    id === "member-demo" ||
+      id === "member-hetal" ||
+      id === "member-avinash" ||
+      id === "member-shruti" ||
+      id === "member-new"
+      ? "member"
+      : "coach",
+  );
 }
 
 export function clearDevPersonaStorage() {

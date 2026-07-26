@@ -18,16 +18,17 @@ describe("dev auth flags", () => {
     expect(isDevAuthEnabled()).toBe(true);
   });
 
-  it("enables client dev auth when NEXT_PUBLIC_E2E_DEV_AUTH=1", () => {
-    process.env.NODE_ENV = "production";
+  it("enables client dev auth when NEXT_PUBLIC_E2E_DEV_AUTH=1 outside production", () => {
+    process.env.NODE_ENV = "test";
     process.env.NEXT_PUBLIC_E2E_DEV_AUTH = "1";
     expect(isDevAuthEnabled()).toBe(true);
   });
 
-  it("enables server dev tokens when E2E_DEV_AUTH=1", () => {
+  it("blocks server dev tokens in production even when E2E_DEV_AUTH=1", () => {
     process.env.NODE_ENV = "production";
     process.env.E2E_DEV_AUTH = "1";
-    expect(isServerDevAuthEnabled()).toBe(true);
+    expect(isServerDevAuthEnabled()).toBe(false);
+    expect(isDevAuthEnabled()).toBe(false);
   });
 
   it("disables dev auth in production without E2E flags", () => {

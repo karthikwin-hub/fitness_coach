@@ -15,8 +15,10 @@ function resolveRole(email: string | undefined): "coach" | "member" {
 
 export async function provisionFirebaseUser(
   decoded: DecodedIdToken,
+  options?: { tenantSlug?: string },
 ): Promise<AuthUser | null> {
-  const tenantSlug = process.env.DEFAULT_TENANT_SLUG ?? "abstrack";
+  const tenantSlug =
+    options?.tenantSlug ?? process.env.DEFAULT_TENANT_SLUG ?? "abstrack";
   const [tenant] = await db
     .select()
     .from(tenants)
@@ -24,6 +26,7 @@ export async function provisionFirebaseUser(
     .limit(1);
 
   if (!tenant) return null;
+  if (tenant.status === "suspended") return null;
 
   const role = resolveRole(decoded.email);
   const [user] = await db

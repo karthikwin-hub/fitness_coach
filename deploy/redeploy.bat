@@ -3,8 +3,8 @@ setlocal
 cd /d "%~dp0.."
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0deploy-app.ps1" ^
-  -Remote ubuntu@140.245.206.149 ^
-  -KeyPath "%USERPROFILE%\.ssh\oracle-trade-ideas.key" ^
+  -Remote ubuntu@129.154.47.155 ^
+  -KeyPath "%USERPROFILE%\.ssh\oracle-fitness-coach" ^
   -EnvFile "web\.env.production.local"
 
 set EXITCODE=%ERRORLEVEL%

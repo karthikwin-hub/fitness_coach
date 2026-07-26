@@ -1,0 +1,54 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useAuthHeaders, authFetchJson } from "@/lib/api/client";
+import { PlanPdfDownloadButton } from "@/components/member/plan-pdf-download-button";
+
+type DeliveryMeta = {
+  id: string;
+  weekLabel: string;
+  createdAt: string;
+};
+
+export function NewPlanBanner() {
+  const getHeaders = useAuthHeaders();
+  const [delivery, setDelivery] = useState<DeliveryMeta | null>(null);
+
+  useEffect(() => {
+    authFetchJson<{ delivery: DeliveryMeta | null }>(
+      "/api/members/me/plan-delivery",
+      {},
+      getHeaders,
+    ).then(({ data }) => {
+      setDelivery(data?.delivery ?? null);
+    });
+  }, [getHeaders]);
+
+  if (!delivery) return null;
+
+  return (
+    <div className="rounded-2xl border border-[var(--brand-primary)]/40 bg-[var(--brand-primary)]/15 p-4">
+      <p className="text-xs uppercase tracking-wide text-white/50">New plan</p>
+      <h2 className="font-heading mt-1 text-lg">{delivery.weekLabel} is ready</h2>
+      <p className="mt-1 text-xs text-white/50">
+        Delivered {new Date(delivery.createdAt).toLocaleDateString()}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link
+          href="/member/workouts"
+          className="rounded-xl bg-[var(--brand-workout)] px-4 py-2 text-sm font-semibold text-[var(--brand-dark)]"
+        >
+          Open workouts
+        </Link>
+        <Link
+          href="/member/nutrition"
+          className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white/80"
+        >
+          Open nutrition
+        </Link>
+        <PlanPdfDownloadButton label="Download PDF" />
+      </div>
+    </div>
+  );
+}

@@ -14,6 +14,8 @@ import { useAuthHeaders, authFetchJson } from "@/lib/api/client";
 
 import { CoachBroadcastCard } from "@/components/member/coach-broadcast-card";
 
+import { NewPlanBanner } from "@/components/member/new-plan-banner";
+
 import { ProgramPhaseStrip } from "@/components/member/program-phase-strip";
 
 import { StreakToast } from "@/components/member/streak-toast";
@@ -227,6 +229,10 @@ export function MemberDashboardView() {
     <div className="space-y-6">
 
       <StreakToast message={streakToast} />
+
+
+
+      <NewPlanBanner />
 
 
 

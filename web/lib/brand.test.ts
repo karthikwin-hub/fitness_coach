@@ -1,5 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { brandingToCssVars, deriveSecondaryAccent } from "@/lib/brand";
+import {
+  brandingToCssVars,
+  deriveSecondaryAccent,
+  mergeBranding,
+  PLATFORM_DEFAULT_BRANDING,
+} from "@/lib/brand";
+
+describe("mergeBranding", () => {
+  it("returns platform defaults for empty partial", () => {
+    const merged = mergeBranding({});
+    expect(merged.name).toBe(PLATFORM_DEFAULT_BRANDING.name);
+    expect(merged.primary).toBe(PLATFORM_DEFAULT_BRANDING.primary);
+    expect(merged.accentDiet).toBe(PLATFORM_DEFAULT_BRANDING.accentDiet);
+  });
+
+  it("overrides only provided fields", () => {
+    const merged = mergeBranding({ primary: "#ff0000" });
+    expect(merged.primary).toBe("#ff0000");
+    expect(merged.name).toBe(PLATFORM_DEFAULT_BRANDING.name);
+    expect(merged.accentWorkout).toBe(PLATFORM_DEFAULT_BRANDING.accentWorkout);
+  });
+
+  it("applies Helna-style partial overrides", () => {
+    const merged = mergeBranding({
+      name: "ABS-TRACK",
+      primary: "#1D6468",
+      accentWorkout: "#16B1A9",
+      accentDiet: "#8AC75B",
+    });
+    expect(merged.name).toBe("ABS-TRACK");
+    expect(merged.tagline).toBe(PLATFORM_DEFAULT_BRANDING.tagline);
+    expect(merged.primary).toBe("#1D6468");
+  });
+});
 
 describe("brandingToCssVars", () => {
   it("uses dual accents by default", () => {

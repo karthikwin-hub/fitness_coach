@@ -90,6 +90,29 @@ Requirements traceability for implemented features. Sources: agreed plan (`.curs
 
 ---
 
+## Batch — Plan delivery + templates (July 2026)
+
+| ID | Requirement ref | Persona | Preconditions | Steps | Expected result | Type | Priority | Expected status |
+|---|---|---|---|---|---|---|---|---|
+| TC-DEL-001 | Template vars resolve | System | None | `resolveTemplateString` with `client_name` | Substitutes; throws if leftover `{{x}}` | Unit | P0 | Pass |
+| TC-DEL-002 | PDF-safe text | System | None | `toPdfSafeText("≤150 — rest")` | `<=150 - rest` | Unit | P0 | Pass |
+| TC-DEL-003 | Member health block | System | None | `buildHealthConsiderationsBlock` for Avinash | Title includes Avinash; not "Hetal Focus" | Unit | P0 | Pass |
+| TC-DEL-004 | Template resolve days | System | Catalog map | `resolveTemplateDays(GYM_W1)` | Days resolved; missing slug throws | Unit | P0 | Pass |
+| TC-DEL-005 | Delivery tokens | System | None | Hash / resolve token helpers | Token hash stable; resolve never returns AuthUser | Unit | P0 | Pass |
+| TC-DEL-006 | Plan pack PDF | System | Snapshot fixture | `renderPlanPackPdf` | Buffer starts with `%PDF` | Unit | P0 | Pass |
+| TC-DEL-007 | Grocery table in PDF | System | Snapshot with `grocery_list` categories | Render plan pack | Non-empty PDF (4-column table path) | Unit | P0 | Pass |
+| TC-DEL-008 | Coach how-to PDF | System | None | `renderCoachHowtoGuidePdf` | Buffer starts with `%PDF` | Unit | P0 | Pass |
+| TC-DEL-010 | Create delivery | Coach | Published plans + DB | POST `/api/plan-deliveries` | Delivery + token URLs; snapshot stored | API | P0 | Pass |
+| TC-DEL-011 | Public PDF via token | Anyone | Active delivery | GET `/p/{token}/plan.pdf` | PDF bytes; welcome text resolved | API | P0 | Pass |
+| TC-DEL-012 | Revoke delivery | Coach | Active delivery | PATCH revoke | Token no longer serves PDF | API | P1 | Pass |
+| TC-DEL-013 | Coach how-to download | Coach | Signed in | GET `/api/coach/user-guide` | PDF attachment | Manual | P0 | Pass |
+| TC-DEL-014 | Member blocked from guide | Member | Signed in | GET `/api/coach/user-guide` | 403 Forbidden | Manual | P0 | Pass |
+| TC-DEL-015 | From-template gym/home | Coach | Seeded catalog | POST `/api/training-plans/from-template` | Full week created; missing exercise → 400 | Manual | P0 | Pass |
+| TC-DEL-016 | Prepare delivery UI | Coach | Published plans | Plan hub → Prepare delivery → Preview | PDF opens; grocery on one page | Manual | P0 | Pass |
+| TC-DEL-017 | Member new-plan banner | Member | Fresh delivery | Open `/member` | Banner + PDF download available | Manual | P1 | Pass |
+
+---
+
 ## Batch — Nutrition tracking API (July 2026)
 
 | ID | Requirement ref | Persona | Preconditions | Steps | Expected result | Type | Priority | Expected status |

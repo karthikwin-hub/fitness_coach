@@ -145,6 +145,30 @@ function CoachSettingsContent() {
           </label>
         </section>
 
+        <section className="space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
+          <h2 className="font-heading text-sm">How-to guide</h2>
+          <p className="text-xs text-white/50">
+            Plain-language PDF for you and your clients (coach, active member, new member). Members cannot download this — share verbally or send pages yourself if helpful.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await authFetch("/api/coach/user-guide", {}, getHeaders);
+              if (!res.ok) return;
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "abstrack-how-to-guide.pdf";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="rounded-xl border border-white/20 px-4 py-2.5 text-sm text-white/90 hover:bg-white/5"
+          >
+            Download how-to guide (PDF)
+          </button>
+        </section>
+
         <div className="flex items-center gap-3">
           <button
             type="submit"

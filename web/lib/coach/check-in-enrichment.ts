@@ -79,10 +79,24 @@ export async function enrichCoachCheckIns(
     }
   }
 
+  const checkInsByMember = new Map<string, typeof checkInRows>();
+  for (const row of checkInRows) {
+    const list = checkInsByMember.get(row.memberId) ?? [];
+    list.push(row);
+    checkInsByMember.set(row.memberId, list);
+  }
+
+  const diaryByMember = new Map<string, typeof diaryRows>();
+  for (const row of diaryRows) {
+    const list = diaryByMember.get(row.memberId) ?? [];
+    list.push(row);
+    diaryByMember.set(row.memberId, list);
+  }
+
   const trendsByMember: Record<string, MemberTrendSnapshot> = {};
   for (const memberId of uniqueIds) {
-    const memberCheckIns = checkInRows.filter((c) => c.memberId === memberId);
-    const memberDiary = diaryRows.filter((d) => d.memberId === memberId);
+    const memberCheckIns = checkInsByMember.get(memberId) ?? [];
+    const memberDiary = diaryByMember.get(memberId) ?? [];
     trendsByMember[memberId] = buildMemberTrendSnapshot(memberId, memberCheckIns, {
       proteinMin: proteinMinByMember.get(memberId),
       diaryDays: memberDiary.map((d) => ({

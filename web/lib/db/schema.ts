@@ -2,6 +2,7 @@ import {
   boolean,
   date,
   doublePrecision,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -85,10 +86,15 @@ export const nutritionTrackingModeEnum = pgEnum("nutrition_tracking_mode", [
   "external_mfp",
 ]);
 
+export const tenantStatusEnum = pgEnum("tenant_status", ["active", "suspended"]);
+
 export const tenants = pgTable("tenants", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  status: tenantStatusEnum("status").notNull().default("active"),
+  subdomain: text("subdomain").unique(),
+  customDomain: text("custom_domain").unique(),
   brandingJson: jsonb("branding_json").notNull().default({}),
   aiAutoApproveThreshold: doublePrecision("ai_auto_approve_threshold")
     .notNull()
@@ -209,35 +215,47 @@ export const contentBlocks = pgTable("content_blocks", {
     .notNull(),
 });
 
-export const exercises = pgTable("exercises", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  tenantId: uuid("tenant_id")
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  youtubeVideoId: text("youtube_video_id"),
-  muscleGroup: text("muscle_group"),
-  equipment: text("equipment").default("bodyweight"),
-  defaultReps: text("default_reps"),
-  defaultSets: integer("default_sets").default(3),
-  notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const exercises = pgTable(
+  "exercises",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    /** Stable key for templates; unique per tenant. */
+    slug: text("slug"),
+    name: text("name").notNull(),
+    youtubeVideoId: text("youtube_video_id"),
+    muscleGroup: text("muscle_group"),
+    equipment: text("equipment").default("bodyweight"),
+    defaultReps: text("default_reps"),
+    defaultSets: integer("default_sets").default(3),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [unique("exercises_tenant_slug_uid").on(t.tenantId, t.slug)],
+);
 
-export const planTemplates = pgTable("plan_templates", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  tenantId: uuid("tenant_id")
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  type: planTemplateTypeEnum("type").notNull(),
-  name: text("name").notNull(),
-  structureJson: jsonb("structure_json").notNull().default({}),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const planTemplates = pgTable(
+  "plan_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    type: planTemplateTypeEnum("type").notNull(),
+    /** Stable key e.g. training_gym / training_home — unique per tenant. */
+    key: text("key"),
+    name: text("name").notNull(),
+    structureJson: jsonb("structure_json").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [unique("plan_templates_tenant_key_uid").on(t.tenantId, t.key)],
+);
 
 export const trainingPlans = pgTable("training_plans", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -340,45 +358,88 @@ export const planPublications = pgTable("plan_publications", {
     .notNull(),
 });
 
-export const checkIns = pgTable("check_ins", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  tenantId: uuid("tenant_id")
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  memberId: uuid("member_id")
-    .notNull()
-    .references(() => members.id, { onDelete: "cascade" }),
-  mealPhotoUrl: text("meal_photo_url"),
-  weightKg: doublePrecision("weight_kg"),
-  sleepHours: doublePrecision("sleep_hours"),
-  energy: integer("energy"),
-  soreness: integer("soreness"),
-  aiAnalysisJson: jsonb("ai_analysis_json"),
-  aiConfidence: doublePrecision("ai_confidence"),
-  status: checkInStatusEnum("status").notNull().default("pending"),
-  coachNote: text("coach_note"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const planDeliveries = pgTable(
+  "plan_deliveries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    trainingPlanId: uuid("training_plan_id"),
+    nutritionPlanId: uuid("nutrition_plan_id"),
+    weekLabel: text("week_label").notNull(),
+    snapshotJson: jsonb("snapshot_json").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
+    whatsappSentAt: timestamp("whatsapp_sent_at", { withTimezone: true }),
+    firstOpenedAt: timestamp("first_opened_at", { withTimezone: true }),
+    openCount: integer("open_count").notNull().default(0),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("plan_deliveries_member_idx").on(t.memberId, t.createdAt)],
+);
 
-export const messages = pgTable("messages", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  tenantId: uuid("tenant_id")
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  senderId: uuid("sender_id")
-    .notNull()
-    .references(() => users.id),
-  recipientId: uuid("recipient_id")
-    .notNull()
-    .references(() => users.id),
-  body: text("body").notNull(),
-  readAt: timestamp("read_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const checkIns = pgTable(
+  "check_ins",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    mealPhotoUrl: text("meal_photo_url"),
+    weightKg: doublePrecision("weight_kg"),
+    sleepHours: doublePrecision("sleep_hours"),
+    energy: integer("energy"),
+    soreness: integer("soreness"),
+    aiAnalysisJson: jsonb("ai_analysis_json"),
+    aiConfidence: doublePrecision("ai_confidence"),
+    status: checkInStatusEnum("status").notNull().default("pending"),
+    coachNote: text("coach_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("check_ins_tenant_member_created_idx").on(
+      t.tenantId,
+      t.memberId,
+      t.createdAt,
+    ),
+  ],
+);
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    senderId: uuid("sender_id")
+      .notNull()
+      .references(() => users.id),
+    recipientId: uuid("recipient_id")
+      .notNull()
+      .references(() => users.id),
+    body: text("body").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("messages_tenant_created_idx").on(t.tenantId, t.createdAt)],
+);
 
 export const workoutSetLogs = pgTable(
   "workout_set_logs",
@@ -406,31 +467,35 @@ export const workoutSetLogs = pgTable(
   }),
 );
 
-export const foodDiaryEntries = pgTable("food_diary_entries", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  tenantId: uuid("tenant_id")
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  memberId: uuid("member_id")
-    .notNull()
-    .references(() => members.id, { onDelete: "cascade" }),
-  logDate: date("log_date").notNull(),
-  mealType: mealTypeEnum("meal_type").notNull(),
-  source: foodEntrySourceEnum("source").notNull(),
-  foodName: text("food_name").notNull(),
-  externalFoodId: text("external_food_id"),
-  externalProvider: text("external_provider"),
-  servingDescription: text("serving_description"),
-  quantity: doublePrecision("quantity").notNull().default(1),
-  calories: integer("calories").notNull().default(0),
-  proteinG: doublePrecision("protein_g").notNull().default(0),
-  carbsG: doublePrecision("carbs_g").notNull().default(0),
-  fatG: doublePrecision("fat_g").notNull().default(0),
-  photoUrl: text("photo_url"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const foodDiaryEntries = pgTable(
+  "food_diary_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    logDate: date("log_date").notNull(),
+    mealType: mealTypeEnum("meal_type").notNull(),
+    source: foodEntrySourceEnum("source").notNull(),
+    foodName: text("food_name").notNull(),
+    externalFoodId: text("external_food_id"),
+    externalProvider: text("external_provider"),
+    servingDescription: text("serving_description"),
+    quantity: doublePrecision("quantity").notNull().default(1),
+    calories: integer("calories").notNull().default(0),
+    proteinG: doublePrecision("protein_g").notNull().default(0),
+    carbsG: doublePrecision("carbs_g").notNull().default(0),
+    fatG: doublePrecision("fat_g").notNull().default(0),
+    photoUrl: text("photo_url"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("food_diary_member_log_date_idx").on(t.memberId, t.logDate)],
+);
 
 export const memberNutritionSettings = pgTable("member_nutrition_settings", {
   memberId: uuid("member_id")
@@ -474,6 +539,7 @@ export type ContentBlock = typeof contentBlocks.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type TrainingPlan = typeof trainingPlans.$inferSelect;
 export type NutritionPlan = typeof nutritionPlans.$inferSelect;
+export type PlanDelivery = typeof planDeliveries.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type FoodDiaryEntry = typeof foodDiaryEntries.$inferSelect;
 export type MemberNutritionSettings = typeof memberNutritionSettings.$inferSelect;

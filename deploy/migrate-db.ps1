@@ -2,8 +2,8 @@
 #
 # Usage from project root:
 #   deploy/migrate-db.ps1 `
-#     -Remote ubuntu@140.245.206.149 `
-#     -KeyPath $env:USERPROFILE\.ssh\oracle-trade-ideas.key
+#     -Remote ubuntu@129.154.47.155 `
+#     -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach
 param(
     [Parameter(Mandatory = $true)]
     [string]$Remote,
@@ -25,12 +25,12 @@ scp -i $KeyPath -r "$RootDir\web\lib" "${Remote}:${RemoteRepo}/web/"
 
 $SeedCmd = if ($SeedOnly) { "npm run db:seed" } else { "npm run db:push && npm run db:seed" }
 
-ssh -i $KeyPath $Remote @"
+$RemoteMigration = @"
 set -e
 cd $RemoteRepo/web
 npm ci
-set -a && source /opt/fitness-coach/web/.env.local && set +a
-$SeedCmd
+sudo bash -c 'set -a; source /opt/fitness-coach/web/.env.local; set +a; cd $RemoteRepo/web; $SeedCmd'
 "@
+($RemoteMigration -replace "`r", "") | ssh -i $KeyPath $Remote "bash -s"
 
 Write-Host "==> Database migrated."

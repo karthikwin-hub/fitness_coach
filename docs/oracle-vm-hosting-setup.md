@@ -35,14 +35,14 @@ Browser → https://abstrack.duckdns.org
 | VM.Standard.E2.1.Micro | 1 GB | **Staging/demo only** — enable swap; Postgres limited to 384 MB |
 | VM.Standard.A1.Flex 2 OCPU / 12 GB | 12 GB | **Recommended for Helna pilot** (~30 clients) |
 
-Shared micro VM (140.245.206.149) is acceptable for **internal demo** while Oracle 2FA is unavailable. Move to a dedicated Ampere VM before production pilot.
+Current staging uses a dedicated `VM.Standard.E2.1.Micro` at `129.154.47.155`. It is suitable for the demo only; move to an Ampere VM before a production pilot.
 
 ---
 
 ## 1. DuckDNS — `abstrack.duckdns.org`
 
 1. Sign in at [duckdns.org](https://www.duckdns.org).
-2. Add subdomain **`abstrack`** → your VM public IP (e.g. `140.245.206.149`).
+2. Add subdomain **`abstrack`** → the reserved VM public IP (`129.154.47.155` for current staging).
 3. Copy your **DuckDNS token** from the account page.
 4. On the VM, add to `/opt/fitness-coach/web/.env.local`:
 
@@ -82,7 +82,7 @@ Summary:
 SSH in (no Console needed if VM already exists):
 
 ```powershell
-ssh -i $env:USERPROFILE\.ssh\oracle-trade-ideas.key ubuntu@140.245.206.149
+ssh -i $env:USERPROFILE\.ssh\oracle-fitness-coach ubuntu@129.154.47.155
 ```
 
 Clone repo and run setup:
@@ -90,7 +90,7 @@ Clone repo and run setup:
 ```bash
 sudo mkdir -p /opt/fitness-coach
 sudo chown ubuntu:ubuntu /opt/fitness-coach
-git clone git@github.com:YOUR_ORG/fitness_coach.git /opt/fitness-coach/repo
+git clone https://github.com/karthikwin-hub/fitness_coach.git /opt/fitness-coach/repo
 bash /opt/fitness-coach/repo/deploy/vm-setup.sh
 ```
 
@@ -108,9 +108,8 @@ Start PostgreSQL:
 
 ```bash
 cd /opt/fitness-coach/repo
-export $(grep -v '^#' /opt/fitness-coach/web/.env.local | xargs)
-docker compose -f deploy/docker-compose.prod.yml up -d
-docker compose -f deploy/docker-compose.prod.yml ps
+sudo docker compose --env-file /opt/fitness-coach/web/.env.local -f deploy/docker-compose.prod.yml up -d
+sudo docker compose --env-file /opt/fitness-coach/web/.env.local -f deploy/docker-compose.prod.yml ps
 ```
 
 Enable systemd + Caddy:
@@ -125,7 +124,7 @@ bash /opt/fitness-coach/repo/deploy/vm-setup-caddy.sh
 Migrate database (from your PC — see step 4, or on VM after `npm ci` in repo/web):
 
 ```powershell
-deploy/migrate-db.ps1 -Remote ubuntu@140.245.206.149 -KeyPath $env:USERPROFILE\.ssh\oracle-trade-ideas.key
+deploy/migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach
 ```
 
 ---
@@ -144,15 +143,15 @@ Deploy:
 
 ```powershell
 deploy/deploy-app.ps1 `
-  -Remote ubuntu@140.245.206.149 `
-  -KeyPath $env:USERPROFILE\.ssh\oracle-trade-ideas.key `
+  -Remote ubuntu@129.154.47.155 `
+  -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach `
   -EnvFile web\.env.production.local
 ```
 
 Re-deploy after code changes — same command. Restart only:
 
 ```powershell
-deploy/deploy-app.ps1 -Remote ubuntu@140.245.206.149 -KeyPath $env:USERPROFILE\.ssh\oracle-trade-ideas.key -RestartOnly
+deploy/deploy-app.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -RestartOnly
 ```
 
 ---

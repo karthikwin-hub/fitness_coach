@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth/server";
+import { getMemberByUserId } from "@/lib/members/queries";
 import {
-  getMemberByUserId,
   getPublishedNutritionPlan,
   getPublishedTrainingPlan,
 } from "@/lib/plans/queries";
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const member = await getMemberByUserId(user.id);
+  const member = await getMemberByUserId(user.id, user.tenantId);
   if (!member) {
     return NextResponse.json({ error: "Member profile not found" }, { status: 404 });
   }

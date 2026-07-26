@@ -1,10 +1,12 @@
 /**
- * Generates PDF user guides for Coach, Member, and New Member personas.
+ * Generates PDF user guides for Coach, Member, and New Member personas,
+ * plus the coach how-to guide (same content as Settings download).
  * Run: npm run guides:pdf
  */
 import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
+import { renderCoachHowtoGuidePdf } from "../lib/pdf/coach-howto-guide";
 
 const BASE = process.env.GUIDE_BASE_URL ?? "http://localhost:3010";
 const OUT_DIR = path.resolve(__dirname, "../../docs/guides");
@@ -173,14 +175,16 @@ const guides: Guide[] = [
         title: "5. Plan delivery",
         body: [
           "Build and publish weekly training and nutrition plans for each client.",
-          "Use Save & publish to save and publish in one step.",
+          "Use gym or home templates for a full week, then personalise.",
+          "After publish, Prepare delivery to send one PDF pack by email, WhatsApp, or link.",
         ],
         steps: [
-          "Open Plan delivery",
-          "Choose View profile or Plan delivery for a client",
-          "Training: edit days/sections/exercises, attach workout guideline blocks, Save or Save & publish",
-          "Nutrition: set macros, attach content blocks; use + Create week 1 if no plan exists, then Publish",
-          "Pilot timer tracks assembly time (target under 5 minutes)",
+          "Open Plan delivery and choose a client",
+          "Training: + Gym/Home template (or clone last week), edit, Save & publish",
+          "Nutrition: set macros, attach content blocks, Save & publish",
+          "Back on the client plan hub → Prepare delivery",
+          "Preview PDF, Send email, Send on WhatsApp, or Copy link",
+          "Members see a new-plan banner and can download the PDF in the app",
         ],
         links: [
           { label: "Plan delivery hub", path: "/coach/plans" },
@@ -188,6 +192,17 @@ const guides: Guide[] = [
           { label: "Nutrition builder", path: "/coach/plans/{member-id}/nutrition" },
           { label: "Client plan hub", path: "/coach/plans/{member-id}" },
         ],
+      },
+      {
+        title: "5b. How-to guide PDF",
+        body: [
+          "Download a plain-language guide covering coach, member, and new-member journeys from Settings.",
+        ],
+        steps: [
+          "Open Settings",
+          "Click Download how-to guide (PDF)",
+        ],
+        links: [{ label: "Coach settings", path: "/coach/settings" }],
       },
       {
         title: "6. Content library & exercises",
@@ -517,7 +532,7 @@ function renderGuide(doc: InstanceType<typeof PDFDocument>, guide: Guide) {
   }
 }
 
-function main() {
+async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   for (const guide of guides) {
@@ -528,10 +543,21 @@ function main() {
     renderGuide(doc, guide);
     doc.end();
 
-    stream.on("finish", () => {
-      console.log(`Wrote ${outPath}`);
+    await new Promise<void>((resolve, reject) => {
+      stream.on("finish", () => {
+        console.log(`Wrote ${outPath}`);
+        resolve();
+      });
+      stream.on("error", reject);
     });
   }
+
+  const howtoPath = path.join(OUT_DIR, "abstrack-how-to-guide.pdf");
+  fs.writeFileSync(howtoPath, await renderCoachHowtoGuidePdf());
+  console.log(`Wrote ${howtoPath}`);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

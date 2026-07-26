@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth/server";
-import { getMemberByUserId } from "@/lib/plans/queries";
+import { getMemberByUserId } from "@/lib/members/queries";
 import { deleteFoodDiaryEntry } from "@/lib/nutrition/diary";
 
 export async function DELETE(
@@ -12,7 +12,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const member = await getMemberByUserId(user.id);
+  const member = await getMemberByUserId(user.id, user.tenantId);
   if (!member) {
     return NextResponse.json({ error: "Member not found" }, { status: 404 });
   }

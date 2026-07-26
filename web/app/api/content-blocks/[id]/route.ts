@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getAuthUser, requireCoach } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { contentBlocks } from "@/lib/db/schema";
@@ -24,10 +24,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       bodyJson: body.bodyJson,
       sortOrder: body.sortOrder,
     })
-    .where(eq(contentBlocks.id, id))
+    .where(and(eq(contentBlocks.id, id), eq(contentBlocks.tenantId, user.tenantId)))
     .returning();
 
-  if (!block || block.tenantId !== user.tenantId) {
+  if (!block) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -41,16 +41,14 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   }
 
   const { id } = await params;
-  const [block] = await db
-    .select()
-    .from(contentBlocks)
-    .where(eq(contentBlocks.id, id))
-    .limit(1);
+  const result = await db
+    .delete(contentBlocks)
+    .where(and(eq(contentBlocks.id, id), eq(contentBlocks.tenantId, user.tenantId)))
+    .returning({ id: contentBlocks.id });
 
-  if (!block || block.tenantId !== user.tenantId) {
+  if (result.length === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await db.delete(contentBlocks).where(eq(contentBlocks.id, id));
   return NextResponse.json({ ok: true });
 }

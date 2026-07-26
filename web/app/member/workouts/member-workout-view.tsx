@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ContentBlockBody } from "@/components/content-block-body";
+import { PlanPdfDownloadButton } from "@/components/member/plan-pdf-download-button";
 import { useAuthHeaders, authFetch, authFetchJson } from "@/lib/api/client";
 import { localWorkoutDateString } from "@/lib/workouts/date";
 
@@ -118,9 +119,12 @@ export function MemberWorkoutView() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-[var(--brand-workout)]/30 bg-[var(--brand-dark-surface)] p-4">
-        <p className="text-xs text-white/40">Week {plan.weekNumber} · Step goal {plan.stepGoal ?? "—"}</p>
-        <h2 className="font-heading text-lg">{today.label}</h2>
+      <div className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-[var(--brand-workout)]/30 bg-[var(--brand-dark-surface)] p-4">
+        <div>
+          <p className="text-xs text-white/40">Week {plan.weekNumber} · Step goal {plan.stepGoal ?? "—"}</p>
+          <h2 className="font-heading text-lg">{today.label}</h2>
+        </div>
+        <PlanPdfDownloadButton label="PDF" className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70" />
       </div>
 
       {plan.blocks && plan.blocks.length > 0 && (

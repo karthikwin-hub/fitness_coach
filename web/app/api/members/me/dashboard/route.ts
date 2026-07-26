@@ -3,15 +3,15 @@ import { desc, eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth/server";
 import { getActiveBroadcast } from "@/lib/coach/broadcasts";
 import { db } from "@/lib/db";
-import { checkIns, members } from "@/lib/db/schema";
+import { checkIns } from "@/lib/db/schema";
 import {
   computeStreakDays,
   computeWeeklyCompliance,
   todayDayIndex,
 } from "@/lib/member/stats";
 import { normalizeProgramPhases } from "@/lib/members/program-phases";
+import { getMemberByUserId } from "@/lib/members/queries";
 import {
-  getMemberByUserId,
   getPublishedNutritionPlan,
   getPublishedTrainingPlan,
 } from "@/lib/plans/queries";
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const member = await getMemberByUserId(user.id);
+  const member = await getMemberByUserId(user.id, user.tenantId);
   if (!member) {
     return NextResponse.json({ error: "Member not found" }, { status: 404 });
   }
@@ -40,11 +40,6 @@ export async function GET(request: NextRequest) {
 
   const streakDays = computeStreakDays(checkInRows);
   const compliancePct = computeWeeklyCompliance(checkInRows);
-
-  await db
-    .update(members)
-    .set({ streakDays, compliancePct })
-    .where(eq(members.id, member.id));
 
   const dayIdx = todayDayIndex();
   const todayWorkout =

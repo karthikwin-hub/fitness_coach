@@ -6,6 +6,7 @@ import { ContentBlockBody } from "@/components/content-block-body";
 import { AddFoodSheet } from "@/components/member/food-diary/add-food-sheet";
 import { MacroProgress } from "@/components/member/food-diary/macro-progress";
 import { MealSection } from "@/components/member/food-diary/meal-section";
+import { PlanPdfDownloadButton } from "@/components/member/plan-pdf-download-button";
 import { useAuthHeaders, authFetch, authFetchJson } from "@/lib/api/client";
 import type { DiaryEntryDto, MealType } from "@/lib/nutrition/types";
 import { MEAL_TYPES } from "@/lib/nutrition/types";
@@ -108,12 +109,15 @@ export function MemberNutritionView() {
   return (
     <div className="space-y-4">
       {plan && (
-        <div className="rounded-2xl border border-[var(--brand-diet)]/30 bg-[var(--brand-dark-surface)] p-4">
-          <p className="text-xs text-white/40">Week {plan.weekNumber} targets</p>
-          <p className="mt-2 text-sm text-white/90">
-            Calories {plan.caloriesMin}–{plan.caloriesMax} · Protein {plan.proteinMin}–
-            {plan.proteinMax}g · Carbs ≤{plan.carbsMax}g · Fat {plan.fatMin}–{plan.fatMax}g
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-2 rounded-2xl border border-[var(--brand-diet)]/30 bg-[var(--brand-dark-surface)] p-4">
+          <div>
+            <p className="text-xs text-white/40">Week {plan.weekNumber} targets</p>
+            <p className="mt-2 text-sm text-white/90">
+              Calories {plan.caloriesMin}–{plan.caloriesMax} · Protein {plan.proteinMin}–
+              {plan.proteinMax}g · Carbs ≤{plan.carbsMax}g · Fat {plan.fatMin}–{plan.fatMax}g
+            </p>
+          </div>
+          <PlanPdfDownloadButton label="PDF" className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70" />
         </div>
       )}
 

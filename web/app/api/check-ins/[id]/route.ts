@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getAuthUser, requireCoach } from "@/lib/auth/server";
 import { getCheckInById } from "@/lib/check-ins/queries";
 import { db } from "@/lib/db";
@@ -19,10 +19,10 @@ export async function POST(request: NextRequest, { params }: Params) {
   const [checkIn] = await db
     .select()
     .from(checkIns)
-    .where(eq(checkIns.id, id))
+    .where(and(eq(checkIns.id, id), eq(checkIns.tenantId, user.tenantId)))
     .limit(1);
 
-  if (!checkIn || checkIn.tenantId !== user.tenantId) {
+  if (!checkIn) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -62,8 +62,12 @@ export async function POST(request: NextRequest, { params }: Params) {
       aiConfidence: analysis.complianceScore,
       status,
     })
-    .where(eq(checkIns.id, id))
+    .where(and(eq(checkIns.id, id), eq(checkIns.tenantId, user.tenantId)))
     .returning();
+
+  if (!updated) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const enriched = await getCheckInById(updated.id, user.tenantId);
   return NextResponse.json(enriched ?? updated);
@@ -94,10 +98,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const [updated] = await db
     .update(checkIns)
     .set(updates)
-    .where(eq(checkIns.id, id))
+    .where(and(eq(checkIns.id, id), eq(checkIns.tenantId, user.tenantId)))
     .returning();
 
-  if (!updated || updated.tenantId !== user.tenantId) {
+  if (!updated) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

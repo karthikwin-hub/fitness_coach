@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth/server";
-import { getMemberByUserId, getPublishedNutritionPlan } from "@/lib/plans/queries";
+import { getMemberByUserId } from "@/lib/members/queries";
+import { getPublishedNutritionPlan } from "@/lib/plans/queries";
 import {
   addFoodDiaryEntry,
   getFoodDiaryDay,
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const member = await getMemberByUserId(user.id);
+  const member = await getMemberByUserId(user.id, user.tenantId);
   if (!member) {
     return NextResponse.json({ error: "Member not found" }, { status: 404 });
   }
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const member = await getMemberByUserId(user.id);
+  const member = await getMemberByUserId(user.id, user.tenantId);
   if (!member) {
     return NextResponse.json({ error: "Member not found" }, { status: 404 });
   }

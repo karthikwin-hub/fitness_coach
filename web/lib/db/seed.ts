@@ -20,6 +20,12 @@ import {
 import { ABSTRACK_BRAND, type TenantBranding } from "../brand";
 import { createTrainingDays } from "../plans/training";
 import { recordPublication } from "../plans/queries";
+import { installTenantPlanDefaults } from "../plans/install-defaults";
+import {
+  GYM_W1_STRUCTURE,
+  HOME_W21_STRUCTURE,
+  resolveTemplateDays,
+} from "../plans/templates";
 
 const branding: TenantBranding = {
   name: ABSTRACK_BRAND.name,
@@ -29,21 +35,6 @@ const branding: TenantBranding = {
   accentDiet: ABSTRACK_BRAND.colors.green,
   accentPromo: ABSTRACK_BRAND.colors.turquoise,
 };
-
-import { contentBlockSeeds } from "./content-block-seeds";
-
-const exerciseSeeds = [
-  { name: "Lat Pulldown", youtubeVideoId: "CAwf7n6Luuc", muscleGroup: "back", equipment: "cable", defaultReps: "12", defaultSets: 3 },
-  { name: "Seated Cable Row", youtubeVideoId: "GZbfZ033f74", muscleGroup: "back", equipment: "cable", defaultReps: "12", defaultSets: 3 },
-  { name: "Barbell Curl", youtubeVideoId: "kwG2ipFRgfo", muscleGroup: "biceps", equipment: "barbell", defaultReps: "10", defaultSets: 3 },
-  { name: "Incline Push-Up", youtubeVideoId: "IODxDxX7oi4", muscleGroup: "chest", equipment: "bodyweight", defaultReps: "15", defaultSets: 3 },
-  { name: "Bodyweight Squat", youtubeVideoId: "aclHkVaku9U", muscleGroup: "legs", equipment: "bodyweight", defaultReps: "15", defaultSets: 3 },
-  { name: "Plank Hold", youtubeVideoId: "pSHjTRCgFw4", muscleGroup: "core", equipment: "bodyweight", defaultReps: "45s", defaultSets: 3 },
-  { name: "Walking Lunges", youtubeVideoId: "L8fvypPrzzs", muscleGroup: "legs", equipment: "bodyweight", defaultReps: "12", defaultSets: 3 },
-  { name: "Glute Bridge", youtubeVideoId: "wPM8ic2hhAw", muscleGroup: "legs", equipment: "bodyweight", defaultReps: "15", defaultSets: 3 },
-  { name: "Mountain Climbers", youtubeVideoId: "nmwgirgXLYM", muscleGroup: "cardio", equipment: "bodyweight", defaultReps: "30s", defaultSets: 3 },
-  { name: "Home Circuit Burpees", youtubeVideoId: "ml6cT4AZdqI", muscleGroup: "home", equipment: "bodyweight", defaultReps: "10", defaultSets: 3 },
-];
 
 const videoSeeds = [
   { title: "Incline Push-Up", muscleGroup: "chest", equipment: "bodyweight", skillLevel: "beginner", youtubeVideoId: "IODxDxX7oi4", sortOrder: 0 },
@@ -159,6 +150,14 @@ async function seed() {
 
   if (existing.length > 0) {
     tenantId = existing[0].id;
+    await db
+      .update(tenants)
+      .set({
+        status: "active",
+        subdomain: "abstrack",
+        brandingJson: branding,
+      })
+      .where(eq(tenants.id, tenantId));
     console.log("Tenant abstrack exists.");
   } else {
     const [tenant] = await db
@@ -166,12 +165,31 @@ async function seed() {
       .values({
         name: "Abs-Track by Helna",
         slug: "abstrack",
+        status: "active",
+        subdomain: "abstrack",
         brandingJson: branding,
         aiAutoApproveThreshold: 0.85,
         calComUrl: process.env.NEXT_PUBLIC_CAL_COM_URL ?? "",
       })
       .returning();
     tenantId = tenant.id;
+  }
+
+  const adminUid = "dev-platform-admin";
+  const adminRows = await db.select().from(users).where(eq(users.firebaseUid, adminUid)).limit(1);
+  if (adminRows.length === 0) {
+    await db.insert(users).values({
+      tenantId,
+      firebaseUid: adminUid,
+      email: "admin@platform.local",
+      displayName: "Platform Admin",
+      role: "platform_admin",
+    });
+  } else if (adminRows[0].role !== "platform_admin") {
+    await db
+      .update(users)
+      .set({ role: "platform_admin" })
+      .where(eq(users.id, adminRows[0].id));
   }
 
   const coachUid = "dev-local-user";
@@ -217,42 +235,19 @@ async function seed() {
     });
   }
 
-  const existingBlocks = await db.select().from(contentBlocks).where(eq(contentBlocks.tenantId, tenantId));
-  const blockIds: string[] = [];
-  for (const seed of contentBlockSeeds) {
-    const found = existingBlocks.find((b) => b.slug === seed.slug);
-    if (found) {
-      await db
-        .update(contentBlocks)
-        .set({
-          title: seed.title,
-          category: seed.category,
-          bodyJson: seed.bodyJson,
-          sortOrder: seed.sortOrder,
-        })
-        .where(eq(contentBlocks.id, found.id));
-      blockIds.push(found.id);
-    } else {
-      const [inserted] = await db
-        .insert(contentBlocks)
-        .values({ tenantId, ...seed })
-        .returning();
-      blockIds.push(inserted.id);
-    }
-  }
-  console.log(`Upserted ${contentBlockSeeds.length} content blocks.`);
+  const installed = await installTenantPlanDefaults(tenantId);
+  console.log(
+    `Installed plan defaults: ${installed.exercises} exercises, templates ${installed.templates.join(", ")}.`,
+  );
 
-  const existingExercises = await db.select().from(exercises).where(eq(exercises.tenantId, tenantId)).limit(1);
-  let exerciseMap: Record<string, string> = {};
-  if (existingExercises.length === 0) {
-    const inserted = await db.insert(exercises).values(
-      exerciseSeeds.map((e) => ({ tenantId, ...e })),
-    ).returning();
-    for (const ex of inserted) exerciseMap[ex.name] = ex.id;
-    console.log(`Inserted ${inserted.length} exercises.`);
-  } else {
-    const all = await db.select().from(exercises).where(eq(exercises.tenantId, tenantId));
-    for (const ex of all) exerciseMap[ex.name] = ex.id;
+  // Prefer catalog by slug for template resolution
+  const allExercises = await db
+    .select()
+    .from(exercises)
+    .where(eq(exercises.tenantId, tenantId));
+  const exerciseMapBySlug: Record<string, string> = {};
+  for (const ex of allExercises) {
+    if (ex.slug) exerciseMapBySlug[ex.slug] = ex.id;
   }
 
   const existingVideos = await db.select().from(videos).where(eq(videos.tenantId, tenantId)).limit(1);
@@ -261,28 +256,25 @@ async function seed() {
     console.log(`Inserted ${videoSeeds.length} videos.`);
   }
 
-  const existingTemplates = await db.select().from(planTemplates).where(eq(planTemplates.tenantId, tenantId)).limit(1);
-  if (existingTemplates.length === 0) {
-    await db.insert(planTemplates).values([
-      {
-        tenantId,
-        type: "training_gym",
-        name: "Gym Split Week (Avinash W1)",
-        structureJson: { days: ["Mon Back/Biceps", "Tue Chest/Triceps", "Wed Legs", "Thu Shoulders", "Fri Full Body", "Sat Active Rest", "Sun Rest"] },
+  // Nutrition template stub (macros only) — separate from training structure templates
+  const existingNutritionTpl = await db
+    .select()
+    .from(planTemplates)
+    .where(eq(planTemplates.tenantId, tenantId));
+  if (!existingNutritionTpl.some((t) => t.type === "nutrition_program")) {
+    await db.insert(planTemplates).values({
+      tenantId,
+      type: "nutrition_program",
+      key: "nutrition_program",
+      name: "Default Nutrition Macros",
+      structureJson: {
+        caloriesMin: 1350,
+        caloriesMax: 1450,
+        proteinMin: 60,
+        proteinMax: 90,
+        carbsMax: 150,
       },
-      {
-        tenantId,
-        type: "training_home",
-        name: "Home Circuit Week (Shruti W21)",
-        structureJson: { days: ["Mon Circuit", "Tue Core", "Wed Legs", "Thu Upper", "Fri Cardio", "Sat Active Rest", "Sun Rest"] },
-      },
-      {
-        tenantId,
-        type: "nutrition_program",
-        name: "Hetal Week 1 Macros",
-        structureJson: { caloriesMin: 1350, caloriesMax: 1450, proteinMin: 60, proteinMax: 90, carbsMax: 150 },
-      },
-    ]);
+    });
   }
 
   async function applyMemberProfile(memberId: string, client: (typeof pilotClients)[0]) {
@@ -376,7 +368,6 @@ async function seed() {
         "week-macros-guide",
         "sample-dishes",
         "nutrition-tips-core",
-        "health-parameters",
         "grocery-list",
       ]);
       const allBlocksForAttach = await db
@@ -399,60 +390,36 @@ async function seed() {
 
     const existingTraining = await db.select().from(trainingPlans).where(eq(trainingPlans.memberId, memberId)).limit(1);
     if (existingTraining.length === 0) {
+      const structure =
+        client.trainingType === "training_gym"
+          ? GYM_W1_STRUCTURE
+          : HOME_W21_STRUCTURE;
+      const days = resolveTemplateDays(structure, exerciseMapBySlug);
+
+      const trainingBlockIds = (
+        await db
+          .select()
+          .from(contentBlocks)
+          .where(eq(contentBlocks.tenantId, tenantId))
+      )
+        .filter((b) =>
+          ["workout-guidelines", "stretching-routine", "cardio-finisher"].includes(
+            b.slug,
+          ),
+        )
+        .map((b) => b.id);
+
       const [tPlan] = await db.insert(trainingPlans).values({
         tenantId,
         memberId,
         weekNumber: client.trainingWeek,
         stepGoal: client.stepGoal,
         templateType: client.trainingType,
+        blockIdsJson: trainingBlockIds,
         status: "published",
       }).returning();
 
-      const gymDays = [
-        { dayIndex: 0, label: "Mon — Back & Biceps", muscleGroup: "back", sections: [
-          { type: "warmup" as const, exercises: [{ exerciseId: exerciseMap["Plank Hold"], reps: "30s", sets: 2, supersetGroup: undefined }] },
-          { type: "resistance" as const, restNote: "Rest 60s after superset", exercises: [
-            { exerciseId: exerciseMap["Lat Pulldown"], reps: "12", sets: 3, supersetGroup: "1A" },
-            { exerciseId: exerciseMap["Seated Cable Row"], reps: "12", sets: 3, supersetGroup: "1B" },
-            { exerciseId: exerciseMap["Barbell Curl"], reps: "10", sets: 3, supersetGroup: "1C" },
-          ]},
-          { type: "stretch" as const, exercises: [] },
-        ]},
-        { dayIndex: 1, label: "Tue — Chest & Triceps", muscleGroup: "chest", sections: [
-          { type: "resistance" as const, exercises: [
-            { exerciseId: exerciseMap["Incline Push-Up"], reps: "15", sets: 3, supersetGroup: "1A" },
-          ]},
-        ]},
-        { dayIndex: 2, label: "Wed — Legs", muscleGroup: "legs", sections: [
-          { type: "resistance" as const, exercises: [
-            { exerciseId: exerciseMap["Bodyweight Squat"], reps: "15", sets: 3, supersetGroup: "1A" },
-            { exerciseId: exerciseMap["Walking Lunges"], reps: "12", sets: 3, supersetGroup: "1B" },
-          ]},
-        ]},
-        { dayIndex: 6, label: "Sun — Rest", muscleGroup: "rest", sections: [] },
-      ];
-
-      const homeDays = [
-        { dayIndex: 0, label: "Mon — Full Circuit", muscleGroup: "full", sections: [
-          { type: "warmup" as const, exercises: [{ exerciseId: exerciseMap["Plank Hold"], reps: "30s", sets: 2 }] },
-          { type: "resistance" as const, restNote: "Minimal rest — circuit style", exercises: [
-            { exerciseId: exerciseMap["Bodyweight Squat"], reps: "15", sets: 3, supersetGroup: "1A" },
-            { exerciseId: exerciseMap["Incline Push-Up"], reps: "12", sets: 3, supersetGroup: "1B" },
-            { exerciseId: exerciseMap["Glute Bridge"], reps: "15", sets: 3, supersetGroup: "1C" },
-            { exerciseId: exerciseMap["Mountain Climbers"], reps: "30s", sets: 3, supersetGroup: "1D" },
-          ]},
-          { type: "cardio" as const, exercises: [{ exerciseId: exerciseMap["Home Circuit Burpees"], reps: "10", sets: 3 }] },
-        ]},
-        { dayIndex: 2, label: "Wed — Legs", muscleGroup: "legs", sections: [
-          { type: "resistance" as const, exercises: [
-            { exerciseId: exerciseMap["Walking Lunges"], reps: "12", sets: 3, supersetGroup: "1A" },
-            { exerciseId: exerciseMap["Glute Bridge"], reps: "15", sets: 3, supersetGroup: "1B" },
-          ]},
-        ]},
-        { dayIndex: 6, label: "Sun — Rest", muscleGroup: "rest", sections: [] },
-      ];
-
-      await createTrainingDays(tPlan.id, client.trainingType === "training_gym" ? gymDays : homeDays);
+      await createTrainingDays(tPlan.id, days);
       await recordPublication(tenantId, "training", tPlan.id, memberId, coachId);
     }
   }

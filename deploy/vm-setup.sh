@@ -15,11 +15,9 @@ sudo useradd --system --create-home --shell /usr/sbin/nologin fitness-coach 2>/d
 sudo mkdir -p "$APP_ROOT"/{app,web,data/postgres,deploy}
 sudo chown -R ubuntu:ubuntu "$APP_ROOT"
 
-echo "==> Installing Node.js 20 LTS (if missing)"
-if ! command -v node >/dev/null 2>&1; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-  sudo apt-get install -y nodejs
-fi
+echo "==> Installing Node.js 22 LTS"
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
 node -v
 npm -v
 
@@ -28,6 +26,25 @@ if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sudo sh
   sudo usermod -aG docker ubuntu
 fi
+
+echo "==> Installing Caddy (if missing)"
+if ! command -v caddy >/dev/null 2>&1; then
+  sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+  curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
+    | sudo gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt \
+    | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+  sudo apt-get update
+  sudo apt-get install -y caddy
+fi
+
+echo "==> Opening HTTP and HTTPS in the VM firewall"
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
+sudo iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null \
+  || sudo iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
+sudo iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null \
+  || sudo iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
+sudo netfilter-persistent save
 
 echo "==> 2 GB swap (recommended on VM.Standard.E2.1.Micro — skip on Ampere 6GB+)"
 if ! swapon --show | grep -q /swapfile; then

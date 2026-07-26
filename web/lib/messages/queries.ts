@@ -1,6 +1,7 @@
 import { and, asc, eq, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { members, messages } from "@/lib/db/schema";
+import { messages } from "@/lib/db/schema";
+import { getMemberById, getMemberByUserId } from "@/lib/members/queries";
 
 export type MessageRow = {
   id: string;
@@ -22,27 +23,11 @@ function mapMessage(row: MessageRow) {
   };
 }
 
-export async function getMemberByUserId(userId: string, tenantId: string) {
-  const [member] = await db
-    .select()
-    .from(members)
-    .where(and(eq(members.userId, userId), eq(members.tenantId, tenantId)))
-    .limit(1);
-  return member ?? null;
-}
+export { getMemberByUserId, getMemberById };
 
 export async function getMemberCoachUserId(memberUserId: string, tenantId: string) {
   const member = await getMemberByUserId(memberUserId, tenantId);
   return member?.coachId ?? null;
-}
-
-export async function getMemberById(memberId: string, tenantId: string) {
-  const [member] = await db
-    .select()
-    .from(members)
-    .where(and(eq(members.id, memberId), eq(members.tenantId, tenantId)))
-    .limit(1);
-  return member ?? null;
 }
 
 export async function assertCoachCanMessageMember(
