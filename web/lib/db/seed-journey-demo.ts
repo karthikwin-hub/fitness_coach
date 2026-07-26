@@ -97,7 +97,7 @@ export async function ensureJourneyDemoData(
       member.programStartDate,
       member.programEndDate,
     );
-    const idx = resolveWindowIndex(windows);
+    const idx = resolveWindowIndex(windows, undefined);
     const bounds = windowBounds(windows, idx)!;
     const range = windowRangeIso(bounds);
     const anchor = daysAgo(5);
