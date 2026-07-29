@@ -4,6 +4,8 @@ import { expect } from "@playwright/test";
 type DevPersonaId =
   | "coach"
   | "member-demo"
+  | "member-gautam"
+  | "member-sarah"
   | "member-hetal"
   | "member-avinash"
   | "member-shruti"
@@ -12,6 +14,8 @@ type DevPersonaId =
 const PERSONA_LABELS: Record<DevPersonaId, RegExp> = {
   coach: /Coach — Helna/i,
   "member-demo": /Member — Demo \(Hetal plans\)/i,
+  "member-gautam": /Member — Gautam/i,
+  "member-sarah": /Member — Sarah/i,
   "member-hetal": /Member — Hetal/i,
   "member-avinash": /Member — Dr\. Avinash/i,
   "member-shruti": /Member — Shruti/i,

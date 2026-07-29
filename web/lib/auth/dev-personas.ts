@@ -2,6 +2,8 @@ export type DevPersonaId =
   | "platform-admin"
   | "coach"
   | "member-demo"
+  | "member-gautam"
+  | "member-sarah"
   | "member-hetal"
   | "member-avinash"
   | "member-shruti"
@@ -51,6 +53,28 @@ export const DEV_PERSONAS: DevPersona[] = [
     role: "member",
     label: "Member — Demo (Hetal plans)",
     description: "Full dashboard, plans, and check-ins",
+    memberPath: "/member",
+  },
+  {
+    id: "member-gautam",
+    token: "dev-demo-gautam",
+    firebaseUid: "demo-gautam",
+    email: "gautam@abstrack.com",
+    displayName: "Gautam Rao",
+    role: "member",
+    label: "Member — Gautam (9 mo history)",
+    description: "40's athlete · gym · full demo history",
+    memberPath: "/member",
+  },
+  {
+    id: "member-sarah",
+    token: "dev-demo-sarah",
+    firebaseUid: "demo-sarah",
+    email: "sarah@abstrack.com",
+    displayName: "Sarah Mitchell",
+    role: "member",
+    label: "Member — Sarah (9 mo history)",
+    description: "Busy working mom · home · full demo history",
     memberPath: "/member",
   },
   {
@@ -129,6 +153,8 @@ export function storeDevPersonaId(id: DevPersonaId) {
   localStorage.setItem(
     "devRole",
     id === "member-demo" ||
+      id === "member-gautam" ||
+      id === "member-sarah" ||
       id === "member-hetal" ||
       id === "member-avinash" ||
       id === "member-shruti" ||

@@ -5,8 +5,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { devTokenForUid } from "@/lib/auth/dev-personas";
 import { isDevAuthEnabled } from "@/lib/auth/dev-auth-enabled";
 import {
-  DEMO_LOGIN_TOKEN,
-  readDemoCoachToken,
+  readDemoAuthToken,
 } from "@/lib/auth/demo-login-shared";
 import { authFetch, authFetchJson } from "@/lib/api/fetch-json";
 
@@ -20,7 +19,7 @@ export function useAuthReady(): boolean {
   const { loading, firebaseUser, appUser, firebaseConfigured } = useAuth();
   if (loading) return false;
   if (firebaseUser) return true;
-  if (readDemoCoachToken()) return true;
+  if (readDemoAuthToken()) return true;
   return !firebaseConfigured && isDevAuthEnabled() && appUser !== null;
 }
 
@@ -32,8 +31,9 @@ export function useAuthHeaders(): () => Promise<Record<string, string>> {
       const token = await firebaseUser.getIdToken();
       return { Authorization: `Bearer ${token}` };
     }
-    if (readDemoCoachToken()) {
-      return { Authorization: `Bearer ${DEMO_LOGIN_TOKEN}` };
+    const demoToken = readDemoAuthToken();
+    if (demoToken) {
+      return { Authorization: `Bearer ${demoToken}` };
     }
     if (!firebaseConfigured && isDevAuthEnabled() && appUser) {
       const token = devTokenForUid(appUser.firebaseUid) ?? "dev-local-token";

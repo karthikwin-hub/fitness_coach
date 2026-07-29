@@ -43,6 +43,7 @@ function daysFromNow(n: number): Date {
 export async function ensureJourneyDemoData(
   tenantId: string,
   coachId: string,
+  skipImportKeys: readonly string[] = [],
 ): Promise<void> {
   const memberRows = await db
     .select()
@@ -52,6 +53,9 @@ export async function ensureJourneyDemoData(
   let refreshed = 0;
 
   for (const member of memberRows) {
+    if (member.importKey && skipImportKeys.includes(member.importKey)) {
+      continue;
+    }
     const [trainingCount] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(trainingPlans)

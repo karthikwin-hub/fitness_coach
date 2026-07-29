@@ -6,7 +6,7 @@ import {
   isDemoLoginToken,
   isServerDemoLoginEnabled,
 } from "@/lib/auth/demo-login-shared";
-import { resolveDemoCoachUser } from "@/lib/auth/demo-login-server";
+import { resolveDemoUserByToken } from "@/lib/auth/demo-login-server";
 import { db } from "@/lib/db";
 import { users, tenants } from "@/lib/db/schema";
 
@@ -118,7 +118,7 @@ export async function getAuthUser(request: NextRequest): Promise<AuthUser | null
 
   const token = authHeader.slice(7);
   if (isServerDemoLoginEnabled() && isDemoLoginToken(token)) {
-    return resolveDemoCoachUser();
+    return resolveDemoUserByToken(token);
   }
   if (isServerDevAuthEnabled() && isDevToken(token)) {
     return resolveDevUser(token);

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { CoachPlanDeliveryNav } from "@/components/coach/coach-plan-delivery-nav";
+import { VoiceNoteRecorder } from "@/components/coach/voice-note-recorder";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
 import { formatMemberName } from "@/lib/members/types";
 
@@ -47,6 +48,10 @@ export default function MemberPlanHubPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string | null>(null);
+  const [voiceNote, setVoiceNote] = useState<{
+    url: string;
+    durationSec: number;
+  } | null>(null);
 
   const load = useCallback(async () => {
     const [t, n, d, profile] = await Promise.all([
@@ -95,7 +100,11 @@ export default function MemberPlanHubPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ memberId }),
+          body: JSON.stringify({
+            memberId,
+            coachVoiceNoteUrl: voiceNote?.url ?? null,
+            coachVoiceNoteDurationSec: voiceNote?.durationSec ?? null,
+          }),
         },
         getHeaders,
       );
@@ -106,6 +115,7 @@ export default function MemberPlanHubPage() {
       }
       setPrepared(body as PreparedDelivery);
       setMessage(`Prepared ${body.delivery.weekLabel}. Preview, then send.`);
+      setVoiceNote(null);
       await load();
     } finally {
       setBusy(false);
@@ -298,6 +308,17 @@ export default function MemberPlanHubPage() {
                   ? `Week ${publishedNutrition.weekNumber} (published)`
                   : "None published"}
               </p>
+            </div>
+
+            <div className="mt-4">
+              <VoiceNoteRecorder
+                memberId={memberId}
+                attached={voiceNote}
+                onAttach={(url, durationSec) => setVoiceNote({ url, durationSec })}
+                onClear={() => setVoiceNote(null)}
+                disabled={busy || !!prepared}
+                label="Optional voice note for this delivery"
+              />
             </div>
 
             <button

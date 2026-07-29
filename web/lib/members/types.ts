@@ -2,7 +2,8 @@ import type { ProgramPhase } from "@/lib/members/program-phases";
 
 export type MemberProfile = {
   id: string;
-  status: "lead" | "active" | "paused";
+  importKey: string | null;
+  status: "lead" | "invited" | "active" | "paused";
   email: string;
   displayName: string | null;
   firstName: string | null;
@@ -36,7 +37,7 @@ export type MemberProfile = {
 };
 
 export type MemberProfileUpdate = Partial<{
-  status: "lead" | "active" | "paused";
+  status: "lead" | "invited" | "active" | "paused";
   firstName: string | null;
   lastName: string | null;
   phone: string | null;

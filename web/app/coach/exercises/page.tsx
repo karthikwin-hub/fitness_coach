@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/auth/require-auth";
-import { CoachPlanDeliveryNav } from "@/components/coach/coach-plan-delivery-nav";
+import { CoachPlanDeliveryShell } from "@/components/coach/coach-plan-delivery-shell";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
 
 type Exercise = {
@@ -99,15 +99,12 @@ export default function ExercisesPage() {
 
   return (
     <RequireAuth roles={["coach", "platform_admin"]}>
-      <div className="min-h-dvh bg-[var(--brand-dark)] text-white">
-        <header className="border-b border-white/10 px-4 py-4">
-          <h1 className="font-heading text-xl">Exercise catalog</h1>
-          <p className="text-sm text-white/60">Tap an exercise to edit. Used in training builder.</p>
-          <div className="mt-4">
-            <CoachPlanDeliveryNav />
-          </div>
-        </header>
-        <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+      <CoachPlanDeliveryShell
+        eyebrow="Exercise catalog"
+        title="Exercise catalog"
+        maxWidth="2xl"
+      >
+        <div className="space-y-6">
           {message && (
             <p className="rounded-lg bg-[var(--brand-workout)]/20 px-3 py-2 text-sm">{message}</p>
           )}
@@ -122,7 +119,7 @@ export default function ExercisesPage() {
             <input
               value={youtubeVideoId}
               onChange={(e) => setYoutubeVideoId(e.target.value)}
-              placeholder="YouTube video ID"
+              placeholder="YouTube URL or video ID"
               className="w-full rounded-lg border border-white/15 bg-[var(--brand-dark-surface)] px-3 py-2 text-sm"
             />
             <input
@@ -161,7 +158,7 @@ export default function ExercisesPage() {
                     <input
                       value={editYoutubeVideoId}
                       onChange={(e) => setEditYoutubeVideoId(e.target.value)}
-                      placeholder="YouTube video ID"
+                      placeholder="YouTube URL or video ID"
                       className="w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 text-sm"
                     />
                     <input
@@ -207,7 +204,7 @@ export default function ExercisesPage() {
             ))}
           </ul>
         </div>
-      </div>
+      </CoachPlanDeliveryShell>
     </RequireAuth>
   );
 }

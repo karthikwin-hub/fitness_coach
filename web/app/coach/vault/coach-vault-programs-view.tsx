@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CoachPlanDeliveryNav } from "@/components/coach/coach-plan-delivery-nav";
+import { CoachPlanDeliveryShell } from "@/components/coach/coach-plan-delivery-shell";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
 import type { VaultCatalogMarketing } from "@/lib/vault/types";
 type VaultItem = {
@@ -176,233 +176,231 @@ export function CoachVaultProgramsView() {
   }
 
   return (
-    <div className="coach-atmosphere min-h-dvh px-4 py-6 text-white lg:px-8">
-      <div className="mx-auto max-w-4xl">
-        <CoachPlanDeliveryNav />
-        <p className="mt-6 text-xs text-[var(--brand-workout)]">Vault programs</p>
-        <h1 className="font-heading text-xl">Program catalog & pricing</h1>
-        <p className="mt-2 text-sm text-white/60">
+    <CoachPlanDeliveryShell
+      eyebrow="Vault programs"
+      title="Program catalog & pricing"
+      description={
+        <>
           Package content and set prices for the public{" "}
           <Link href="/programs" className="text-[var(--brand-diet)] underline">
             /programs
           </Link>{" "}
           storefront. Checkout is Phase 2 — Buy Now uses waitlist for now.
-        </p>
+        </>
+      }
+      maxWidth="4xl"
+      message={message ?? undefined}
+    >
+      <div className="space-y-6">
+      {marketing && (
+        <div className="rounded-xl border border-white/10 bg-[var(--brand-dark-surface)]">
+          <button
+            type="button"
+            onClick={() => setStorefrontOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-4 py-3 text-left"
+          >
+            <div>
+              <p className="font-medium">Storefront copy</p>
+              <p className="text-xs text-white/40">
+                Hero, trust stat, and coach story on /programs
+              </p>
+            </div>
+            <span className="text-white/40">{storefrontOpen ? "−" : "+"}</span>
+          </button>
+          {storefrontOpen && (
+            <div className="space-y-3 border-t border-white/10 px-4 py-4">
+              {(
+                [
+                  ["heroHeadline", "Hero headline"],
+                  ["heroSubhead", "Hero subhead"],
+                  ["heroCtaLabel", "Hero CTA label"],
+                  ["trustStat", "Trust stat"],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="block text-xs text-white/50">
+                  {label}
+                  <input
+                    value={marketing[key]}
+                    onChange={(e) => updateMarketing({ [key]: e.target.value })}
+                    className={fieldClass}
+                  />
+                </label>
+              ))}
+              <label className="block text-xs text-white/50">
+                Coach story title
+                <input
+                  value={marketing.coachStory.title}
+                  onChange={(e) => updateCoachStory({ title: e.target.value })}
+                  className={fieldClass}
+                />
+              </label>
+              <label className="block text-xs text-white/50">
+                Coach story body
+                <textarea
+                  value={marketing.coachStory.body}
+                  onChange={(e) => updateCoachStory({ body: e.target.value })}
+                  rows={4}
+                  className={fieldClass}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => saveStorefront()}
+                className="rounded-lg bg-[var(--brand-workout)] px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+              >
+                Save storefront
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
-        {message && (
-          <p className="mt-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
-            {message}
-          </p>
-        )}
-
-        {marketing && (
-          <div className="mt-8 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)]">
-            <button
-              type="button"
-              onClick={() => setStorefrontOpen((o) => !o)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left"
+      <div className="space-y-4">
+        {families.map((family) => {
+          const open = expandedId === family.id;
+          return (
+            <div
+              key={family.id}
+              className="rounded-xl border border-white/10 bg-[var(--brand-dark-surface)]"
             >
-              <div>
-                <p className="font-medium">Storefront copy</p>
-                <p className="text-xs text-white/40">
-                  Hero, trust stat, and coach story on /programs
-                </p>
-              </div>
-              <span className="text-white/40">{storefrontOpen ? "−" : "+"}</span>
-            </button>
-            {storefrontOpen && (
-              <div className="space-y-3 border-t border-white/10 px-4 py-4">
-                {(
-                  [
-                    ["heroHeadline", "Hero headline"],
-                    ["heroSubhead", "Hero subhead"],
-                    ["heroCtaLabel", "Hero CTA label"],
-                    ["trustStat", "Trust stat"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <label key={key} className="block text-xs text-white/50">
-                    {label}
+              <button
+                type="button"
+                onClick={() => setExpandedId(open ? null : family.id)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left"
+              >
+                <div>
+                  <p className="font-medium">{family.title}</p>
+                  <p className="text-xs text-white/40">
+                    /vault/{family.slug} · {family.published ? "Published" : "Draft"}
+                  </p>
+                </div>
+                <span className="text-white/40">{open ? "−" : "+"}</span>
+              </button>
+
+              {open && (
+                <div className="space-y-4 border-t border-white/10 px-4 py-4">
+                  <label className="block text-xs text-white/50">
+                    Title
                     <input
-                      value={marketing[key]}
-                      onChange={(e) => updateMarketing({ [key]: e.target.value })}
+                      value={family.title}
+                      onChange={(e) =>
+                        updateFamily(family.id, { title: e.target.value })
+                      }
                       className={fieldClass}
                     />
                   </label>
-                ))}
-                <label className="block text-xs text-white/50">
-                  Coach story title
-                  <input
-                    value={marketing.coachStory.title}
-                    onChange={(e) => updateCoachStory({ title: e.target.value })}
-                    className={fieldClass}
-                  />
-                </label>
-                <label className="block text-xs text-white/50">
-                  Coach story body
-                  <textarea
-                    value={marketing.coachStory.body}
-                    onChange={(e) => updateCoachStory({ body: e.target.value })}
-                    rows={4}
-                    className={fieldClass}
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => saveStorefront()}
-                  className="rounded-lg bg-[var(--brand-workout)] px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
-                >
-                  Save storefront
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+                  <label className="block text-xs text-white/50">
+                    Subtitle
+                    <input
+                      value={family.subtitle ?? ""}
+                      onChange={(e) =>
+                        updateFamily(family.id, { subtitle: e.target.value })
+                      }
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="block text-xs text-white/50">
+                    Description
+                    <textarea
+                      value={family.description ?? ""}
+                      onChange={(e) =>
+                        updateFamily(family.id, { description: e.target.value })
+                      }
+                      rows={3}
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={family.published}
+                      onChange={(e) =>
+                        updateFamily(family.id, { published: e.target.checked })
+                      }
+                    />
+                    Published on /programs
+                  </label>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => saveFamily(family)}
+                    className="rounded-lg bg-[var(--brand-workout)] px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+                  >
+                    Save program
+                  </button>
 
-        <div className="mt-8 space-y-4">          {families.map((family) => {
-            const open = expandedId === family.id;
-            return (
-              <div
-                key={family.id}
-                className="rounded-xl border border-white/10 bg-[var(--brand-dark-surface)]"
-              >
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(open ? null : family.id)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left"
-                >
-                  <div>
-                    <p className="font-medium">{family.title}</p>
-                    <p className="text-xs text-white/40">
-                      /vault/{family.slug} · {family.published ? "Published" : "Draft"}
-                    </p>
-                  </div>
-                  <span className="text-white/40">{open ? "−" : "+"}</span>
-                </button>
-
-                {open && (
-                  <div className="space-y-4 border-t border-white/10 px-4 py-4">
-                    <label className="block text-xs text-white/50">
-                      Title
-                      <input
-                        value={family.title}
-                        onChange={(e) =>
-                          updateFamily(family.id, { title: e.target.value })
-                        }
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-white/50">
-                      Subtitle
-                      <input
-                        value={family.subtitle ?? ""}
-                        onChange={(e) =>
-                          updateFamily(family.id, { subtitle: e.target.value })
-                        }
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-white/50">
-                      Description
-                      <textarea
-                        value={family.description ?? ""}
-                        onChange={(e) =>
-                          updateFamily(family.id, { description: e.target.value })
-                        }
-                        rows={3}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={family.published}
-                        onChange={(e) =>
-                          updateFamily(family.id, { published: e.target.checked })
-                        }
-                      />
-                      Published on /programs
-                    </label>
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => saveFamily(family)}
-                      className="rounded-lg bg-[var(--brand-workout)] px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
-                    >
-                      Save program
-                    </button>
-
-                    <div className="space-y-3 pt-2">
-                      <h3 className="text-sm font-medium text-white/70">SKUs & pricing</h3>
-                      {family.products.map((product) => (
-                        <div
-                          key={product.id}
-                          className="rounded-lg border border-white/10 p-3"
-                        >
-                          <p className="text-sm font-medium">{product.label}</p>
-                          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                            {(
-                              [
-                                ["validityDays", "Days"],
-                                ["listPriceInr", "List ₹"],
-                                ["salePriceInr", "Sale ₹"],
-                                ["listPriceUsd", "List $"],
-                                ["salePriceUsd", "Sale $"],
-                              ] as const
-                            ).map(([key, label]) => (
-                              <label key={key} className="block text-[10px] text-white/40">
-                                {label}
-                                <input
-                                  type="number"
-                                  value={
-                                    product[key as keyof VaultProduct] as number | null ?? ""
-                                  }
-                                  onChange={(e) =>
-                                    updateProduct(family.id, product.id, {
-                                      [key]: e.target.value
-                                        ? Number(e.target.value)
-                                        : null,
-                                    })
-                                  }
-                                  className={fieldClass}
-                                />
-                              </label>
-                            ))}
-                          </div>
-                          <label className="mt-2 block text-[10px] text-white/40">
-                            Includes (one per line)
-                            <textarea
-                              value={product.includesJson.join("\n")}
-                              onChange={(e) =>
-                                updateProduct(family.id, product.id, {
-                                  includesJson: e.target.value
-                                    .split("\n")
-                                    .map((l) => l.trim())
-                                    .filter(Boolean),
-                                })
-                              }
-                              rows={4}
-                              className={fieldClass}
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            disabled={saving}
-                            onClick={() => saveProduct(family.id, product)}
-                            className="mt-2 rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/80"
-                          >
-                            Save pricing
-                          </button>
+                  <div className="space-y-3 pt-2">
+                    <h3 className="text-sm font-medium text-white/70">SKUs & pricing</h3>
+                    {family.products.map((product) => (
+                      <div
+                        key={product.id}
+                        className="rounded-lg border border-white/10 p-3"
+                      >
+                        <p className="text-sm font-medium">{product.label}</p>
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {(
+                            [
+                              ["validityDays", "Days"],
+                              ["listPriceInr", "List ₹"],
+                              ["salePriceInr", "Sale ₹"],
+                              ["listPriceUsd", "List $"],
+                              ["salePriceUsd", "Sale $"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <label key={key} className="block text-[10px] text-white/40">
+                              {label}
+                              <input
+                                type="number"
+                                value={
+                                  product[key as keyof VaultProduct] as number | null ?? ""
+                                }
+                                onChange={(e) =>
+                                  updateProduct(family.id, product.id, {
+                                    [key]: e.target.value
+                                      ? Number(e.target.value)
+                                      : null,
+                                  })
+                                }
+                                className={fieldClass}
+                              />
+                            </label>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                        <label className="mt-2 block text-[10px] text-white/40">
+                          Includes (one per line)
+                          <textarea
+                            value={product.includesJson.join("\n")}
+                            onChange={(e) =>
+                              updateProduct(family.id, product.id, {
+                                includesJson: e.target.value
+                                  .split("\n")
+                                  .map((l) => l.trim())
+                                  .filter(Boolean),
+                              })
+                            }
+                            rows={4}
+                            className={fieldClass}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => saveProduct(family.id, product)}
+                          className="mt-2 rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/80"
+                        >
+                          Save pricing
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-    </div>
+      </div>
+    </CoachPlanDeliveryShell>
   );
 }

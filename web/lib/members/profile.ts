@@ -35,6 +35,7 @@ export async function getMemberProfile(
   const { member, user } = row;
   return {
     id: member.id,
+    importKey: member.importKey,
     status: member.status,
     email: user.email,
     displayName: user.displayName,

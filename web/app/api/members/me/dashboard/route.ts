@@ -66,7 +66,11 @@ export async function GET(request: NextRequest) {
     compliancePct,
     stepGoal: training?.stepGoal ?? member.stepGoal ?? 10000,
     coachBroadcast: coachBroadcast?.active
-      ? { body: coachBroadcast.body, audioUrl: coachBroadcast.audioUrl }
+      ? {
+          body: coachBroadcast.body,
+          audioUrl: coachBroadcast.audioUrl,
+          videoUrl: coachBroadcast.videoUrl,
+        }
       : null,
     todayWorkout: todayWorkout
       ? {
@@ -88,6 +92,8 @@ export async function GET(request: NextRequest) {
       id: c.id,
       status: c.status,
       coachNote: c.coachNote,
+      coachVoiceNoteUrl: c.coachVoiceNoteUrl,
+      coachVoiceNoteDurationSec: c.coachVoiceNoteDurationSec,
       createdAt: c.createdAt.toISOString(),
       weightKg: c.weightKg,
       sleepHours: c.sleepHours,

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuthHeaders, useAuthReady, authFetch } from "@/lib/api/client";
+import { CoachPageShell } from "@/components/coach/coach-page-shell";
+import { CoachBroadcastPanel } from "@/components/coach/coach-broadcast-panel";
 import { CheckInHistoryList } from "@/components/coach/check-in-history-list";
+import { VoiceNoteRecorder } from "@/components/coach/voice-note-recorder";
 import { ApproveButton } from "@/components/coach/approve-button";
 import { RecipeSwapDrawer } from "@/components/coach/recipe-swap-drawer";
 import { MemberDiarySummary } from "@/components/coach/member-diary-summary";
@@ -23,6 +26,8 @@ type CheckIn = {
   weightKg: number | null;
   sleepHours: number | null;
   coachNote: string | null;
+  coachVoiceNoteUrl: string | null;
+  coachVoiceNoteDurationSec: number | null;
   createdAt: string;
 };
 
@@ -73,6 +78,10 @@ export function CoachCommandCenter() {
   const [trendsByMember, setTrendsByMember] = useState<Record<string, MemberTrendSnapshot>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [coachNoteDraft, setCoachNoteDraft] = useState("");
+  const [voiceNote, setVoiceNote] = useState<{
+    url: string;
+    durationSec: number;
+  } | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | null>(
     () => searchParams.get("memberId"),
   );
@@ -150,15 +159,33 @@ export function CoachCommandCenter() {
 
   useEffect(() => {
     setCoachNoteDraft(selected?.coachNote ?? "");
+    setVoiceNote(
+      selected?.coachVoiceNoteUrl
+        ? {
+            url: selected.coachVoiceNoteUrl,
+            durationSec: selected.coachVoiceNoteDurationSec ?? 0,
+          }
+        : null,
+    );
     setNoteSaved(false);
-  }, [selected?.id, selected?.coachNote]);
+  }, [
+    selected?.id,
+    selected?.coachNote,
+    selected?.coachVoiceNoteUrl,
+    selected?.coachVoiceNoteDurationSec,
+  ]);
 
   const pending = checkIns.filter((c) => c.status === "pending" || c.status === "flagged");
   const listTitle = memberFilter
     ? coachCopy.queueTitleHistory(checkIns.length)
     : coachCopy.queueTitlePending(pending.length);
 
-  async function patchCheckIn(body: { status?: string; coachNote?: string | null }) {
+  async function patchCheckIn(body: {
+    status?: string;
+    coachNote?: string | null;
+    coachVoiceNoteUrl?: string | null;
+    coachVoiceNoteDurationSec?: number | null;
+  }) {
     if (!selected) return null;
     const updated: CheckIn = await authFetch(`/api/check-ins/${selected.id}`, {
       method: "PATCH",
@@ -174,14 +201,23 @@ export function CoachCommandCenter() {
   async function saveNote() {
     if (!selected) return;
     setSavingNote(true);
-    await patchCheckIn({ coachNote: coachNoteDraft || null });
+    await patchCheckIn({
+      coachNote: coachNoteDraft || null,
+      coachVoiceNoteUrl: voiceNote?.url ?? null,
+      coachVoiceNoteDurationSec: voiceNote?.durationSec ?? null,
+    });
     setSavingNote(false);
     setNoteSaved(true);
   }
 
   async function review(status: "approved" | "flagged") {
     if (!selected) return;
-    await patchCheckIn({ status, coachNote: coachNoteDraft || null });
+    await patchCheckIn({
+      status,
+      coachNote: coachNoteDraft || null,
+      coachVoiceNoteUrl: voiceNote?.url ?? null,
+      coachVoiceNoteDurationSec: voiceNote?.durationSec ?? null,
+    });
     setNoteSaved(true);
   }
 
@@ -196,15 +232,13 @@ export function CoachCommandCenter() {
     : coachCopy.queueEmpty;
 
   return (
-    <div className="coach-atmosphere min-h-dvh text-white">
-      <header className="border-b border-white/10 px-4 py-4 lg:px-8">
-        <div className="mx-auto max-w-6xl">
-          <p className="text-xs text-[var(--brand-workout)]">{coachCopy.commandCenterSubtitle}</p>
-          <h1 className="font-heading text-xl">{coachCopy.commandCenterTitle}</h1>
-        </div>
-      </header>
-
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-3">
+    <CoachPageShell
+      eyebrow={coachCopy.commandCenterSubtitle}
+      title={coachCopy.commandCenterTitle}
+      maxWidth="6xl"
+    >
+      <CoachBroadcastPanel />
+      <div className="grid gap-6 lg:grid-cols-3">
         <section className="lg:col-span-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-heading text-sm text-white/70">{listTitle}</h2>
@@ -304,6 +338,22 @@ export function CoachCommandCenter() {
                   placeholder="Feedback visible on the member dashboard after you save…"
                   className="mt-2 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
                 />
+                <div className="mt-3">
+                  <VoiceNoteRecorder
+                    memberId={selected.memberId}
+                    attached={voiceNote}
+                    onAttach={(url, durationSec) => {
+                      setVoiceNote({ url, durationSec });
+                      setNoteSaved(false);
+                    }}
+                    onClear={() => {
+                      setVoiceNote(null);
+                      setNoteSaved(false);
+                    }}
+                    disabled={savingNote}
+                    label="Voice feedback for member"
+                  />
+                </div>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
@@ -360,7 +410,7 @@ export function CoachCommandCenter() {
           }}
         />
       )}
-    </div>
+    </CoachPageShell>
   );
 }
 

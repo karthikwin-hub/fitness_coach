@@ -2,11 +2,13 @@ import { expect, test } from "@playwright/test";
 import { loginAsDevPersona } from "./helpers/auth";
 
 test.describe("Auth role guards", () => {
-  test("TC-AUTH-003: dev persona picker shows 6 options", async ({ page }) => {
+  test("TC-AUTH-003: dev persona picker shows member options", async ({ page }) => {
     await page.goto("/login?switch=1");
     await expect(page.getByRole("button", { name: /Coach — Helna/i })).toBeVisible({
       timeout: 10_000,
     });
+    await expect(page.getByRole("button", { name: /Member — Gautam/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Member — Sarah/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Member — Demo \(Hetal plans\)/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Member — Hetal/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Member — Dr\. Avinash/i })).toBeVisible();

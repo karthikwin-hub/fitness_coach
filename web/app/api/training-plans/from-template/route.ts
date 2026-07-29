@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
 import { getAuthUser, requireCoach } from "@/lib/auth/server";
-import { db } from "@/lib/db";
-import { exercises, planTemplates } from "@/lib/db/schema";
-import { createTrainingPlanFromInput } from "@/lib/plans/training";
+import {
+  applyTrainingFromTemplateRow,
+  getPlanTemplateByKeyOrId,
+} from "@/lib/plans/apply-template";
 import {
   GYM_W1_TEMPLATE,
   HOME_W21_TEMPLATE,
-  parseTrainingTemplateStructure,
-  resolveTemplateDays,
 } from "@/lib/plans/templates";
 import { installTenantPlanDefaults } from "@/lib/plans/install-defaults";
+import { db } from "@/lib/db";
+import { planTemplates } from "@/lib/db/schema";
 
 export async function POST(request: NextRequest) {
   const user = await getAuthUser(request);
@@ -19,92 +19,69 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const templateKey = (body.template ?? body.key) as string;
-  if (
-    templateKey !== "training_gym" &&
-    templateKey !== "training_home"
-  ) {
-    return NextResponse.json(
-      { error: "template must be training_gym or training_home" },
-      { status: 400 },
-    );
+  const templateKey = (body.template ?? body.key ?? body.templateId) as string;
+  if (!templateKey) {
+    return NextResponse.json({ error: "template key or id required" }, { status: 400 });
   }
   if (!body.memberId) {
     return NextResponse.json({ error: "memberId required" }, { status: 400 });
   }
 
-  // Ensure defaults exist (idempotent) so older tenants get upgraded templates
   await installTenantPlanDefaults(user.tenantId);
 
-  let [tplRow] = await db
-    .select()
-    .from(planTemplates)
-    .where(
-      and(
-        eq(planTemplates.tenantId, user.tenantId),
-        eq(planTemplates.key, templateKey),
-      ),
-    )
-    .limit(1);
+  let template = await getPlanTemplateByKeyOrId(user.tenantId, templateKey);
 
-  // Fallback to code fixtures if DB row somehow missing
-  if (!tplRow) {
+  if (!template) {
     const fixture =
-      templateKey === "training_gym" ? GYM_W1_TEMPLATE : HOME_W21_TEMPLATE;
-    const [inserted] = await db
-      .insert(planTemplates)
-      .values({
-        tenantId: user.tenantId,
-        type: fixture.type,
-        key: fixture.key,
-        name: fixture.name,
-        structureJson: fixture.structure,
-      })
-      .returning();
-    tplRow = inserted;
+      templateKey === "training_gym"
+        ? GYM_W1_TEMPLATE
+        : templateKey === "training_home"
+          ? HOME_W21_TEMPLATE
+          : null;
+
+    if (fixture) {
+      const [inserted] = await db
+        .insert(planTemplates)
+        .values({
+          tenantId: user.tenantId,
+          type: fixture.type,
+          key: fixture.key,
+          name: fixture.name,
+          structureJson: fixture.structure,
+        })
+        .returning();
+      template = inserted;
+    }
   }
 
-  let structure;
-  try {
-    structure = parseTrainingTemplateStructure(tplRow.structureJson);
-  } catch (err) {
+  if (!template) {
+    return NextResponse.json({ error: "Template not found" }, { status: 404 });
+  }
+
+  if (
+    template.type !== "training_gym" &&
+    template.type !== "training_home" &&
+    template.type !== "plan_bundle"
+  ) {
     return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? `Invalid template structure: ${err.message}`
-            : "Invalid template structure",
-      },
-      { status: 500 },
-    );
-  }
-
-  const catalog = await db
-    .select()
-    .from(exercises)
-    .where(eq(exercises.tenantId, user.tenantId));
-
-  const exerciseMapBySlug: Record<string, string> = {};
-  for (const ex of catalog) {
-    if (ex.slug) exerciseMapBySlug[ex.slug] = ex.id;
-  }
-
-  let days;
-  try {
-    days = resolveTemplateDays(structure, exerciseMapBySlug);
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Template resolve failed" },
+      { error: "Template has no training structure" },
       { status: 400 },
     );
   }
 
-  const plan = await createTrainingPlanFromInput(user.tenantId, body.memberId, {
-    weekNumber: body.weekNumber ?? 1,
-    stepGoal: structure.stepGoal,
-    templateType: templateKey,
-    days,
-  });
+  try {
+    const plan = await applyTrainingFromTemplateRow(
+      user.tenantId,
+      template,
+      body.memberId,
+      body.weekNumber ?? 1,
+    );
 
-  return NextResponse.json(plan, { status: 201 });
+    return NextResponse.json(plan, { status: 201 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Template apply failed" },
+      { status: 400 },
+    );
+  }
 }

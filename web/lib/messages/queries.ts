@@ -13,6 +13,8 @@ export type MessageRow = {
   senderId: string;
   recipientId: string;
   body: string;
+  audioUrl: string | null;
+  audioDurationSec: number | null;
   readAt: Date | null;
   createdAt: Date;
 };
@@ -23,6 +25,8 @@ function mapMessage(row: MessageRow) {
     senderId: row.senderId,
     recipientId: row.recipientId,
     body: row.body,
+    audioUrl: row.audioUrl,
+    audioDurationSec: row.audioDurationSec,
     readAt: row.readAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
@@ -69,6 +73,8 @@ export async function listThread(
       senderId: messages.senderId,
       recipientId: messages.recipientId,
       body: messages.body,
+      audioUrl: messages.audioUrl,
+      audioDurationSec: messages.audioDurationSec,
       readAt: messages.readAt,
       createdAt: messages.createdAt,
     })
@@ -93,6 +99,8 @@ export async function insertMessage(input: {
   senderId: string;
   recipientId: string;
   body: string;
+  audioUrl?: string | null;
+  audioDurationSec?: number | null;
 }) {
   const [row] = await db
     .insert(messages)
@@ -101,12 +109,16 @@ export async function insertMessage(input: {
       senderId: input.senderId,
       recipientId: input.recipientId,
       body: input.body,
+      audioUrl: input.audioUrl ?? null,
+      audioDurationSec: input.audioDurationSec ?? null,
     })
     .returning({
       id: messages.id,
       senderId: messages.senderId,
       recipientId: messages.recipientId,
       body: messages.body,
+      audioUrl: messages.audioUrl,
+      audioDurationSec: messages.audioDurationSec,
       readAt: messages.readAt,
       createdAt: messages.createdAt,
     });

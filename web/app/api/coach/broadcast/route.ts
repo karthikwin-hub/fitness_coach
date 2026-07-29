@@ -1,10 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser, isCoach, requireCoach } from "@/lib/auth/server";
+import type { BroadcastExpiresPreset } from "@/lib/coach/broadcast-expiry";
 import {
   getActiveBroadcast,
   listBroadcasts,
   upsertActiveBroadcast,
 } from "@/lib/coach/broadcasts";
+
+function parsePreset(value: unknown): BroadcastExpiresPreset | undefined {
+  if (value === "24h" || value === "48h" || value === "custom") return value;
+  return undefined;
+}
+
+function validatePublishBody(body: Record<string, unknown>): string | null {
+  const text = String(body.body ?? "").trim();
+  const audioUrl = body.audioUrl ? String(body.audioUrl).trim() : "";
+  const videoUrl = body.videoUrl ? String(body.videoUrl).trim() : "";
+  if (body.active === false) return null;
+  if (!text && !audioUrl && !videoUrl) {
+    return "Add text, audio, or video before publishing.";
+  }
+  const preset = parsePreset(body.expiresPreset);
+  if (preset === "custom") {
+    const expiresAt = body.expiresAt ? new Date(String(body.expiresAt)) : null;
+    if (!expiresAt || Number.isNaN(expiresAt.getTime())) {
+      return "Custom expiry requires a valid date and time.";
+    }
+    if (expiresAt.getTime() <= Date.now()) {
+      return "Expiry must be in the future.";
+    }
+  }
+  return null;
+}
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUser(request);
@@ -14,7 +41,12 @@ export async function GET(request: NextRequest) {
 
   if (isCoach(user)) {
     const items = await listBroadcasts(user.tenantId);
-    return NextResponse.json({ active: items.find((b) => b.active) ?? null, items });
+    const activeRow = items.find((b) => b.active) ?? null;
+    return NextResponse.json({
+      tenantId: user.tenantId,
+      active: activeRow,
+      items,
+    });
   }
 
   const active = await getActiveBroadcast(user.tenantId);
@@ -27,11 +59,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  const body = (await request.json()) as Record<string, unknown>;
+  const validationError = validatePublishBody(body);
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
+
   const broadcast = await upsertActiveBroadcast(user!.tenantId, user!.id, {
     body: String(body.body ?? ""),
-    audioUrl: body.audioUrl ?? null,
+    audioUrl: body.audioUrl != null ? String(body.audioUrl) || null : undefined,
+    videoUrl: body.videoUrl != null ? String(body.videoUrl) || null : undefined,
     active: body.active !== false,
+    expiresPreset: parsePreset(body.expiresPreset),
+    expiresAt: body.expiresAt != null ? String(body.expiresAt) : undefined,
   });
 
   return NextResponse.json(broadcast);

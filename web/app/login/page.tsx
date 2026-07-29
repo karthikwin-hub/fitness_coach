@@ -4,16 +4,17 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
+import type { AppUser } from "@/components/auth/auth-provider";
 import {
   DEV_PERSONAS,
   type DevPersonaId,
 } from "@/lib/auth/dev-personas";
-import { DEMO_COACH_EMAIL } from "@/lib/auth/demo-login-shared";
+import { DEMO_COACH_EMAIL, DEMO_MEMBER_EMAIL } from "@/lib/auth/demo-login-shared";
 
 function LoginContent() {
   const {
     signInWithGoogle,
-    signInAsDemoCoach,
+    signInAsDemoUser,
     appUser,
     loading,
     firebaseConfigured,
@@ -27,7 +28,8 @@ function LoginContent() {
   const nextRaw = searchParams.get("next");
   const nextPath =
     nextRaw && nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : null;
-  const [demoEmail, setDemoEmail] = useState(DEMO_COACH_EMAIL);
+  const [demoCoachEmail, setDemoCoachEmail] = useState(DEMO_COACH_EMAIL);
+  const [demoMemberEmail, setDemoMemberEmail] = useState(DEMO_MEMBER_EMAIL);
   const [demoBusy, setDemoBusy] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
 
@@ -64,21 +66,25 @@ function LoginContent() {
     router.push(persona.memberPath);
   }
 
-  function goAfterLogin() {
+  function goAfterLogin(role: AppUser["role"]) {
     if (nextPath) {
       router.push(nextPath);
       return;
     }
-    router.push("/coach");
+    router.push(role === "member" ? "/member" : "/coach");
   }
 
-  async function submitDemoLogin(event: React.FormEvent) {
+  async function submitDemoLogin(
+    event: React.FormEvent,
+    email: string,
+    role: "coach" | "member",
+  ) {
     event.preventDefault();
     setDemoError(null);
     setDemoBusy(true);
     try {
-      await signInAsDemoCoach(demoEmail);
-      goAfterLogin();
+      await signInAsDemoUser(email);
+      goAfterLogin(role);
     } catch (error) {
       setDemoError(error instanceof Error ? error.message : "Demo sign-in failed");
     } finally {
@@ -112,38 +118,69 @@ function LoginContent() {
           </button>
 
           {demoLoginEnabled && (
-            <form
-              onSubmit={submitDemoLogin}
-              className="rounded-xl border border-white/15 bg-white/5 p-4"
-            >
-              <p className="text-xs uppercase tracking-wide text-[var(--brand-workout)]">
-                Demo coach access
-              </p>
-              <p className="mt-1 text-xs text-white/50">
-                Enter the demo coach email — no password or Google account required.
-              </p>
-              <label className="mt-3 block text-xs text-white/50">
-                Coach email
-                <input
-                  type="email"
-                  value={demoEmail}
-                  onChange={(event) => setDemoEmail(event.target.value)}
-                  autoComplete="username"
-                  className="tap-target mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-3 text-sm text-white"
-                  required
-                />
-              </label>
-              {demoError && (
-                <p className="mt-2 text-xs text-red-300">{demoError}</p>
-              )}
-              <button
-                type="submit"
-                disabled={demoBusy}
-                className="tap-target mt-3 w-full rounded-xl border border-[var(--brand-workout)]/40 bg-[var(--brand-workout)]/15 py-3 text-sm font-semibold text-[var(--brand-workout)] disabled:opacity-50"
+            <div className="space-y-4">
+              <form
+                onSubmit={(e) => submitDemoLogin(e, demoCoachEmail, "coach")}
+                className="rounded-xl border border-white/15 bg-white/5 p-4"
               >
-                {demoBusy ? "Signing in…" : "Sign in as demo coach"}
-              </button>
-            </form>
+                <p className="text-xs uppercase tracking-wide text-[var(--brand-workout)]">
+                  Demo coach access
+                </p>
+                <label className="mt-3 block text-xs text-white/50">
+                  Coach email
+                  <input
+                    type="email"
+                    value={demoCoachEmail}
+                    onChange={(event) => setDemoCoachEmail(event.target.value)}
+                    autoComplete="username"
+                    className="tap-target mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-3 text-sm text-white"
+                    required
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={demoBusy}
+                  className="tap-target mt-3 w-full rounded-xl border border-[var(--brand-workout)]/40 bg-[var(--brand-workout)]/15 py-3 text-sm font-semibold text-[var(--brand-workout)] disabled:opacity-50"
+                >
+                  {demoBusy ? "Signing in…" : "Sign in as demo coach"}
+                </button>
+              </form>
+
+              <form
+                onSubmit={(e) => submitDemoLogin(e, demoMemberEmail, "member")}
+                className="rounded-xl border border-white/15 bg-white/5 p-4"
+              >
+                <p className="text-xs uppercase tracking-wide text-[var(--brand-diet)]">
+                  Demo member access
+                </p>
+                <p className="mt-2 text-xs text-white/40">
+                  Enter any seeded member email (e.g. sarah@abstrack.com, gautam@abstrack.com).
+                </p>
+                <label className="mt-3 block text-xs text-white/50">
+                  Member email
+                  <input
+                    type="email"
+                    value={demoMemberEmail}
+                    onChange={(event) => setDemoMemberEmail(event.target.value)}
+                    autoComplete="username"
+                    placeholder="sarah@abstrack.com"
+                    className="tap-target mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-3 text-sm text-white"
+                    required
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={demoBusy}
+                  className="tap-target mt-3 w-full rounded-xl border border-[var(--brand-diet)]/40 bg-[var(--brand-diet)]/15 py-3 text-sm font-semibold text-[var(--brand-diet)] disabled:opacity-50"
+                >
+                  {demoBusy ? "Signing in…" : "Sign in as demo member"}
+                </button>
+              </form>
+
+              {demoError && (
+                <p className="text-xs text-red-300">{demoError}</p>
+              )}
+            </div>
           )}
         </div>
       ) : (

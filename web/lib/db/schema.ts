@@ -21,6 +21,7 @@ export const userRoleEnum = pgEnum("user_role", [
 
 export const memberStatusEnum = pgEnum("member_status", [
   "lead",
+  "invited",
   "active",
   "paused",
 ]);
@@ -73,6 +74,7 @@ export const planTemplateTypeEnum = pgEnum("plan_template_type", [
   "nutrition_program",
   "training_gym",
   "training_home",
+  "plan_bundle",
 ]);
 
 export const dietPreferenceEnum = pgEnum("diet_preference", [
@@ -114,16 +116,22 @@ export const tenants = pgTable("tenants", {
     .notNull()
     .default(0.85),
   calComUrl: text("cal_com_url"),
+  featuresJson: jsonb("features_json").notNull().default({}),
+  retentionDays: integer("retention_days").notNull().default(90),
+  lastPurgeAt: timestamp("last_purge_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });
 
-export const users = pgTable("users", {
+export const users = pgTable(
+  "users",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
   tenantId: uuid("tenant_id")
     .notNull()
     .references(() => tenants.id, { onDelete: "cascade" }),
+  /** Placeholder `invite-{uuid}` until first Google login links Firebase. */
   firebaseUid: text("firebase_uid").notNull().unique(),
   email: text("email").notNull(),
   displayName: text("display_name"),
@@ -131,9 +139,13 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+  },
+  (t) => [unique("users_tenant_email_uid").on(t.tenantId, t.email)],
+);
 
-export const members = pgTable("members", {
+export const members = pgTable(
+  "members",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
   tenantId: uuid("tenant_id")
     .notNull()
@@ -170,10 +182,13 @@ export const members = pgTable("members", {
   dietPreference: dietPreferenceEnum("diet_preference"),
   healthGoalsJson: jsonb("health_goals_json").default([]),
   stepGoal: integer("step_goal").default(10000),
+  importKey: text("import_key"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+  },
+  (t) => [unique("members_tenant_import_key_uid").on(t.tenantId, t.importKey)],
+);
 
 export const leads = pgTable("leads", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -351,7 +366,13 @@ export const planTemplates = pgTable(
     key: text("key"),
     name: text("name").notNull(),
     structureJson: jsonb("structure_json").notNull().default({}),
+    description: text("description"),
+    tagsJson: jsonb("tags_json").notNull().default([]),
+    sourceMemberId: uuid("source_member_id").references(() => members.id),
     createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
@@ -478,6 +499,8 @@ export const planDeliveries = pgTable(
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
     whatsappSentAt: timestamp("whatsapp_sent_at", { withTimezone: true }),
+    coachVoiceNoteUrl: text("coach_voice_note_url"),
+    coachVoiceNoteDurationSec: integer("coach_voice_note_duration_sec"),
     firstOpenedAt: timestamp("first_opened_at", { withTimezone: true }),
     openCount: integer("open_count").notNull().default(0),
     createdBy: uuid("created_by").references(() => users.id),
@@ -507,6 +530,8 @@ export const checkIns = pgTable(
     aiConfidence: doublePrecision("ai_confidence"),
     status: checkInStatusEnum("status").notNull().default("pending"),
     coachNote: text("coach_note"),
+    coachVoiceNoteUrl: text("coach_voice_note_url"),
+    coachVoiceNoteDurationSec: integer("coach_voice_note_duration_sec"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -534,6 +559,8 @@ export const messages = pgTable(
       .notNull()
       .references(() => users.id),
     body: text("body").notNull(),
+    audioUrl: text("audio_url"),
+    audioDurationSec: integer("audio_duration_sec"),
     readAt: timestamp("read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -622,6 +649,8 @@ export const coachBroadcasts = pgTable("coach_broadcasts", {
   createdBy: uuid("created_by").references(() => users.id),
   body: text("body").notNull(),
   audioUrl: text("audio_url"),
+  videoUrl: text("video_url"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
   active: boolean("active").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

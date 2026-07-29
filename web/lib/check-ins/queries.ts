@@ -15,6 +15,8 @@ const checkInSelect = {
   aiConfidence: checkIns.aiConfidence,
   status: checkIns.status,
   coachNote: checkIns.coachNote,
+  coachVoiceNoteUrl: checkIns.coachVoiceNoteUrl,
+  coachVoiceNoteDurationSec: checkIns.coachVoiceNoteDurationSec,
   createdAt: checkIns.createdAt,
   memberDisplayName: users.displayName,
   memberEmail: users.email,
@@ -33,6 +35,8 @@ export type CheckInRow = {
   aiConfidence: number | null;
   status: string;
   coachNote: string | null;
+  coachVoiceNoteUrl: string | null;
+  coachVoiceNoteDurationSec: number | null;
   createdAt: Date;
   memberDisplayName: string | null;
   memberEmail: string;

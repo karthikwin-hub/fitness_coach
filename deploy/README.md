@@ -19,4 +19,14 @@
 
 **Full guide:** [../docs/oracle-vm-hosting-setup.md](../docs/oracle-vm-hosting-setup.md)
 
+| [sql/2026-07-29-coach-broadcast-expiry-video.sql](sql/2026-07-29-coach-broadcast-expiry-video.sql) | Broadcast video/expiry + tenant retention columns |
+
+**Nightly data retention purge (optional):** set `CRON_SECRET` on the VM, then add a daily cron job:
+
+```bash
+0 3 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://abstrack.duckdns.org/api/cron/purge-retention
+```
+
+Coaches can also run cleanup manually from Settings → Data retention & storage.
+
 **Firebase:** [../docs/firebase-production-setup.md](../docs/firebase-production-setup.md)

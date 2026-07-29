@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
       weekLabel: delivery.weekLabel,
       createdAt: delivery.createdAt,
       firstOpenedAt: delivery.firstOpenedAt,
+      coachVoiceNoteUrl: delivery.coachVoiceNoteUrl,
+      coachVoiceNoteDurationSec: delivery.coachVoiceNoteDurationSec,
     },
   });
 }

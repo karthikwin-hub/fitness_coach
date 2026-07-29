@@ -62,8 +62,20 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
   const text = typeof body.body === "string" ? body.body.trim() : "";
-  if (!text) {
-    return NextResponse.json({ error: "Message body is required" }, { status: 400 });
+  const audioUrl =
+    typeof body.audioUrl === "string" && body.audioUrl.trim()
+      ? body.audioUrl.trim()
+      : null;
+  const audioDurationSec =
+    typeof body.audioDurationSec === "number" && body.audioDurationSec > 0
+      ? Math.round(body.audioDurationSec)
+      : null;
+
+  if (!text && !audioUrl) {
+    return NextResponse.json(
+      { error: "Message body or audio is required" },
+      { status: 400 },
+    );
   }
   if (text.length > MAX_BODY_LENGTH) {
     return NextResponse.json({ error: "Message too long" }, { status: 400 });
@@ -85,6 +97,8 @@ export async function POST(request: NextRequest) {
       senderId: user.id,
       recipientId: access.member.userId,
       body: text,
+      audioUrl,
+      audioDurationSec,
     });
 
     return NextResponse.json(
@@ -108,6 +122,8 @@ export async function POST(request: NextRequest) {
     senderId: user.id,
     recipientId: coachUserId,
     body: text,
+    audioUrl,
+    audioDurationSec,
   });
 
   return NextResponse.json(

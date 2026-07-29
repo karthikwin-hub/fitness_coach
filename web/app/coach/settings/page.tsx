@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { RequireAuth } from "@/components/auth/require-auth";
+import { CoachPageShell } from "@/components/coach/coach-page-shell";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
 import { ABSTRACK_BRAND, type AccentMode, type TenantBranding } from "@/lib/brand";
 import { coachCopy } from "@/lib/copy/coach-portal";
+import type { TenantFeatures } from "@/lib/tenant/features";
 
 type CalendarSettings = {
   preferredMeetingType: "none" | "in_person" | "google_meet" | "zoom" | "whatsapp";
@@ -33,8 +36,11 @@ function CoachSettingsContent() {
     accentWorkout: ABSTRACK_BRAND.colors.teal,
     accentDiet: ABSTRACK_BRAND.colors.green,
   });
-  const [broadcastBody, setBroadcastBody] = useState("");
-  const [broadcastAudio, setBroadcastAudio] = useState("");
+  const [retentionDays, setRetentionDays] = useState(90);
+  const [retentionPreset, setRetentionPreset] = useState<"30" | "60" | "90" | "custom">("90");
+  const [lastPurgeAt, setLastPurgeAt] = useState<string | null>(null);
+  const [purging, setPurging] = useState(false);
+  const [purgeSummary, setPurgeSummary] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [guideError, setGuideError] = useState<string | null>(null);
@@ -49,20 +55,34 @@ function CoachSettingsContent() {
     googleEmail: null,
   });
   const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [features, setFeatures] = useState<TenantFeatures>({
+    selfServiceSignup: true,
+    quizEnabled: true,
+    publicLoginEnabled: true,
+  });
 
   useEffect(() => {
     Promise.all([
       authFetch("/api/tenant/branding", {}, getHeaders).then((r) => r.json()),
-      authFetch("/api/coach/broadcast", {}, getHeaders).then((r) => r.json()),
+      authFetch("/api/tenant/retention", {}, getHeaders).then((r) => r.json()),
       authFetch("/api/coach/calendar/settings", {}, getHeaders).then((r) => r.json()),
-    ]).then(([brandData, broadcastData, calendarData]) => {
+      authFetch("/api/tenant/features", {}, getHeaders).then((r) => r.json()),
+    ]).then(([brandData, retentionData, calendarData, featuresData]) => {
       if (brandData?.branding) setBranding(brandData.branding);
-      if (broadcastData?.active) {
-        setBroadcastBody(broadcastData.active.body ?? "");
-        setBroadcastAudio(broadcastData.active.audioUrl ?? "");
+      if (typeof retentionData?.retentionDays === "number") {
+        const days = retentionData.retentionDays as number;
+        setRetentionDays(days);
+        if (days === 30) setRetentionPreset("30");
+        else if (days === 60) setRetentionPreset("60");
+        else if (days === 90) setRetentionPreset("90");
+        else setRetentionPreset("custom");
       }
+      if (retentionData?.lastPurgeAt) setLastPurgeAt(retentionData.lastPurgeAt);
       if (!calendarData?.error) {
         setCalendarSettings(calendarData);
+      }
+      if (featuresData?.features) {
+        setFeatures(featuresData.features);
       }
     });
   }, [getHeaders]);
@@ -75,14 +95,10 @@ function CoachSettingsContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(branding),
     }, getHeaders);
-    await authFetch("/api/coach/broadcast", {
-      method: "POST",
+    await authFetch("/api/tenant/retention", {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        body: broadcastBody,
-        audioUrl: broadcastAudio || null,
-        active: broadcastBody.trim().length > 0,
-      }),
+      body: JSON.stringify({ retentionDays }),
     }, getHeaders);
     const calendarResponse = await authFetch(
       "/api/coach/calendar/settings",
@@ -99,17 +115,55 @@ function CoachSettingsContent() {
     } else {
       setCalendarError(null);
     }
+    await authFetch("/api/tenant/features", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(features),
+    }, getHeaders);
     setSaving(false);
     setSaved(true);
   }
 
   return (
-    <div className="coach-atmosphere min-h-dvh text-white">
-      <header className="border-b border-white/10 px-4 py-4">
-        <h1 className="font-heading text-xl">{coachCopy.settingsTitle}</h1>
-      </header>
+    <CoachPageShell eyebrow="Settings" title={coachCopy.settingsTitle} maxWidth="lg">
+      <form onSubmit={saveAll} className="space-y-8">
+        <section className="space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
+          <h2 className="font-heading text-sm">Client onboarding</h2>
+          <p className="text-xs text-white/50">
+            Control public signup and quiz for this coaching tenant.
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={!features.selfServiceSignup}
+              onChange={(e) =>
+                setFeatures((f) => ({ ...f, selfServiceSignup: !e.target.checked }))
+              }
+            />
+            Coach-managed clients only (disable self-service Google signup)
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={!features.quizEnabled}
+              onChange={(e) =>
+                setFeatures((f) => ({ ...f, quizEnabled: !e.target.checked }))
+              }
+            />
+            Hide public quiz / lead capture
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={features.publicLoginEnabled}
+              onChange={(e) =>
+                setFeatures((f) => ({ ...f, publicLoginEnabled: e.target.checked }))
+              }
+            />
+            Show login page for invited clients
+          </label>
+        </section>
 
-      <form onSubmit={saveAll} className="mx-auto max-w-lg space-y-8 px-4 py-6">
         <section className="space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
           <h2 className="font-heading text-sm">Accent mode</h2>
           <div className="flex gap-2">
@@ -312,25 +366,96 @@ function CoachSettingsContent() {
         <section className="space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
           <h2 className="font-heading text-sm">{coachCopy.broadcastTitle}</h2>
           <p className="text-xs text-white/50">{coachCopy.broadcastHint}</p>
-          <textarea
-            rows={4}
-            value={broadcastBody}
-            onChange={(e) => {
-              setBroadcastBody(e.target.value);
-              setSaved(false);
-            }}
-            placeholder="Share a mindset note, weekly focus, or celebration…"
-            className="w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
-          />
+          <Link
+            href="/coach"
+            className="inline-block text-sm text-[var(--brand-diet)] underline"
+          >
+            Open Command center to publish coach notes →
+          </Link>
+        </section>
+
+        <section className="space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
+          <h2 className="font-heading text-sm">{coachCopy.retentionTitle}</h2>
+          <p className="text-xs text-white/50">{coachCopy.retentionHint}</p>
+          <p className="text-xs text-white/40">{coachCopy.retentionCostHint}</p>
           <label className="block text-xs text-white/50">
-            Audio URL (optional)
-            <input
-              value={broadcastAudio}
-              onChange={(e) => setBroadcastAudio(e.target.value)}
-              placeholder="https://…"
+            Delete logs and media older than
+            <select
+              value={retentionPreset}
+              onChange={(e) => {
+                const preset = e.target.value as "30" | "60" | "90" | "custom";
+                setRetentionPreset(preset);
+                if (preset !== "custom") setRetentionDays(Number(preset));
+                setSaved(false);
+              }}
               className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
-            />
+            >
+              <option value="30">30 days</option>
+              <option value="60">60 days</option>
+              <option value="90">90 days (default)</option>
+              <option value="custom">Custom</option>
+            </select>
           </label>
+          {retentionPreset === "custom" && (
+            <label className="block text-xs text-white/50">
+              Custom retention (days)
+              <input
+                type="number"
+                min={7}
+                max={3650}
+                value={retentionDays}
+                onChange={(e) => {
+                  setRetentionDays(Number(e.target.value));
+                  setSaved(false);
+                }}
+                className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+              />
+            </label>
+          )}
+          {lastPurgeAt && (
+            <p className="text-xs text-white/40">{coachCopy.retentionLastPurge(lastPurgeAt)}</p>
+          )}
+          <button
+            type="button"
+            disabled={purging}
+            onClick={async () => {
+              if (!window.confirm(coachCopy.retentionPurgeConfirm)) return;
+              setPurging(true);
+              setPurgeSummary(null);
+              const res = await authFetch(
+                "/api/tenant/retention",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ confirm: true }),
+                },
+                getHeaders,
+              );
+              const data = await res.json().catch(() => ({}));
+              setPurging(false);
+              if (res.ok && data.summary) {
+                const s = data.summary;
+                setPurgeSummary(
+                  `Removed ${s.messagesDeleted} messages, ${s.foodEntriesDeleted} food entries, stripped ${s.checkInsStripped} check-ins, deleted ${s.mediaFilesDeleted} storage files.`,
+                );
+                setLastPurgeAt(new Date().toISOString());
+              } else {
+                setPurgeSummary(data.error ?? "Cleanup failed.");
+              }
+            }}
+            className="rounded-xl border border-amber-400/40 px-4 py-2.5 text-sm text-amber-200 disabled:opacity-50"
+          >
+            {purging ? "Running cleanup…" : "Run cleanup now"}
+          </button>
+          {purgeSummary && <p className="text-xs text-white/50">{purgeSummary}</p>}
+        </section>
+
+        <section className="space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
+          <h2 className="font-heading text-sm">Import & export</h2>
+          <p className="text-xs text-white/50">Bulk migrate members and catalog via Excel workbooks.</p>
+          <Link href="/coach/settings/import" className="inline-block rounded-xl border border-[var(--brand-diet)]/40 px-4 py-2.5 text-sm text-[var(--brand-diet)] hover:bg-[var(--brand-diet)]/10">
+            Open import & export
+          </Link>
         </section>
 
         <section className="space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
@@ -376,6 +501,6 @@ function CoachSettingsContent() {
           {saved && <span className="text-sm text-[var(--brand-diet)]">{coachCopy.noteSaved}</span>}
         </div>
       </form>
-    </div>
+    </CoachPageShell>
   );
 }

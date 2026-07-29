@@ -93,21 +93,20 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "scp upload failed" }
 
     Write-Host "==> Installing on VM and restarting service"
-    $RemoteInstall = @"
-set -e
-rm -rf ~/$StagingDir
-mkdir -p ~/$StagingDir
-tar -xzf ~/$StagingDir.tar.gz -C ~/$StagingDir
-rm -f ~/$StagingDir.tar.gz
-sudo rsync -a --delete ~/$StagingDir/ $RemoteApp/
-sudo chown -R fitness-coach:fitness-coach $RemoteApp
-rm -rf ~/$StagingDir
-sudo systemctl restart fitness-coach
-sudo systemctl is-active fitness-coach
-"@
-    $RemoteInstallUnix = ($RemoteInstall -replace "`r`n", "`n") -replace "`r", ""
-    $RemoteInstallUnix | ssh -i $KeyPath $Remote "bash -s"
-    if ($LASTEXITCODE -ne 0) { throw "remote install/restart failed" }
+    $RemoteInstall = @(
+        "set -e",
+        "rm -rf ~/$StagingDir",
+        "mkdir -p ~/$StagingDir",
+        "tar -xzf ~/$StagingDir.tar.gz -C ~/$StagingDir",
+        "rm -f ~/$StagingDir.tar.gz",
+        "sudo rsync -a --delete ~/$StagingDir/ $RemoteApp/",
+        "sudo chown -R fitness-coach:fitness-coach $RemoteApp",
+        "rm -rf ~/$StagingDir"
+    ) -join "`n"
+    $RemoteInstall | ssh -i $KeyPath $Remote "bash -s"
+    if ($LASTEXITCODE -ne 0) { throw "remote install failed" }
+    ssh -i $KeyPath $Remote "sudo systemctl restart fitness-coach && sudo systemctl is-active fitness-coach"
+    if ($LASTEXITCODE -ne 0) { throw "remote restart failed" }
 
     Write-Host "==> Done. Open https://abstrack.duckdns.org (after DuckDNS + Caddy are configured)."
 }

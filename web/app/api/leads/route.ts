@@ -4,6 +4,7 @@ import { getAuthUser, requireCoach } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { leads, tenants } from "@/lib/db/schema";
 import { resolveTenantFromRequest } from "@/lib/tenant/resolver";
+import { getTenantFeatures } from "@/lib/tenant/features";
 import { isValidEmail } from "@/lib/validation/email";
 
 export async function POST(request: NextRequest) {
@@ -44,6 +45,11 @@ export async function POST(request: NextRequest) {
   }
   if (tenant.status === "suspended") {
     return NextResponse.json({ error: "Tenant suspended" }, { status: 503 });
+  }
+
+  const features = getTenantFeatures(tenant);
+  if (!features.quizEnabled) {
+    return NextResponse.json({ error: "Quiz submissions are disabled" }, { status: 403 });
   }
 
   const [lead] = await db

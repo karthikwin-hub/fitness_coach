@@ -46,7 +46,7 @@ type Dashboard = {
 
   stepGoal: number;
 
-  coachBroadcast: { body: string; audioUrl: string | null } | null;
+  coachBroadcast: { body: string; audioUrl: string | null; videoUrl?: string | null } | null;
 
   todayWorkout: {
 
@@ -79,6 +79,10 @@ type Dashboard = {
     status: string;
 
     coachNote: string | null;
+
+    coachVoiceNoteUrl: string | null;
+
+    coachVoiceNoteDurationSec: number | null;
 
     createdAt: string;
 
@@ -268,6 +272,8 @@ export function MemberDashboardView() {
 
           audioUrl={data.coachBroadcast.audioUrl}
 
+          videoUrl={data.coachBroadcast.videoUrl ?? null}
+
         />
 
       )}
@@ -415,6 +421,16 @@ export function MemberDashboardView() {
                   <p className="mt-2 text-sm text-amber-200">Flagged — coach will follow up</p>
 
                 ) : null}
+
+                {c.coachVoiceNoteUrl && (
+
+                  <audio controls className="mt-2 w-full" src={c.coachVoiceNoteUrl}>
+
+                    <track kind="captions" />
+
+                  </audio>
+
+                )}
 
               </li>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { VoiceNoteRecorder } from "@/components/coach/voice-note-recorder";
 import { useAuthHeaders, authFetchJson } from "@/lib/api/client";
 
 export type ThreadMessage = {
@@ -8,6 +9,8 @@ export type ThreadMessage = {
   senderId: string;
   recipientId: string;
   body: string;
+  audioUrl: string | null;
+  audioDurationSec: number | null;
   readAt: string | null;
   createdAt: string;
   isMine: boolean;
@@ -18,6 +21,9 @@ type MessageThreadProps = {
   memberId?: string;
   coachName?: string;
   compact?: boolean;
+  /** Show only the latest N messages; use with loadMoreCount for coach member page */
+  initialVisibleCount?: number;
+  loadMoreCount?: number;
 };
 
 function formatTime(iso: string) {
@@ -34,14 +40,24 @@ export function MessageThread({
   memberId,
   coachName = "Coach Helna",
   compact = false,
+  initialVisibleCount,
+  loadMoreCount = 10,
 }: MessageThreadProps) {
   const getHeaders = useAuthHeaders();
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
+  const [visibleCount, setVisibleCount] = useState(initialVisibleCount ?? Number.MAX_SAFE_INTEGER);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [voiceNote, setVoiceNote] = useState<{
+    url: string;
+    durationSec: number;
+  } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollAfterSendRef = useRef(false);
+  const initialScrollDoneRef = useRef(false);
+  const paginated = initialVisibleCount != null;
 
   const threadUrl =
     role === "coach" && memberId
@@ -72,19 +88,46 @@ export function MessageThread({
   }, [loadThread]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (loading) return;
+    if (paginated) {
+      if (scrollAfterSendRef.current || !initialScrollDoneRef.current) {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        scrollAfterSendRef.current = false;
+        initialScrollDoneRef.current = true;
+      }
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [loading, messages, visibleCount, paginated]);
+
+  const displayedMessages = paginated
+    ? messages.slice(Math.max(0, messages.length - visibleCount))
+    : messages;
+  const hiddenCount = paginated ? Math.max(0, messages.length - visibleCount) : 0;
+
+  function showOlderMessages() {
+    setVisibleCount((prev) => prev + loadMoreCount);
+  }
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     const text = draft.trim();
-    if (!text || sending) return;
+    if ((!text && !voiceNote) || sending) return;
 
     setSending(true);
     const payload =
       role === "coach" && memberId
-        ? { memberId, body: text }
-        : { body: text };
+        ? {
+            memberId,
+            body: text,
+            audioUrl: voiceNote?.url ?? null,
+            audioDurationSec: voiceNote?.durationSec ?? null,
+          }
+        : {
+            body: text,
+            audioUrl: voiceNote?.url ?? null,
+            audioDurationSec: voiceNote?.durationSec ?? null,
+          };
 
     const { data: created, error: sendError } = await authFetchJson<ThreadMessage>(
       "/api/messages",
@@ -99,8 +142,10 @@ export function MessageThread({
     if (sendError || !created) {
       setError(sendError ?? "Could not send message");
     } else {
+      scrollAfterSendRef.current = true;
       setMessages((prev) => [...prev, created]);
       setDraft("");
+      setVoiceNote(null);
       setError(null);
     }
     setSending(false);
@@ -129,7 +174,19 @@ export function MessageThread({
         {!loading && messages.length === 0 && (
           <p className="text-center text-sm text-white/50">Say hi to your coach</p>
         )}
-        {messages.map((msg) => (
+        {!loading && hiddenCount > 0 && (
+          <div className="flex justify-center pb-1">
+            <button
+              type="button"
+              onClick={showOlderMessages}
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+            >
+              More
+              {hiddenCount > loadMoreCount ? ` (${hiddenCount} older)` : ""}
+            </button>
+          </div>
+        )}
+        {displayedMessages.map((msg) => (
           <div
             key={msg.id}
             className={`flex ${msg.isMine ? "justify-end" : "justify-start"}`}
@@ -141,7 +198,18 @@ export function MessageThread({
                   : "bg-white/10 text-white"
               }`}
             >
-              <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+              {msg.body ? (
+                <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+              ) : null}
+              {msg.audioUrl && (
+                <audio
+                  controls
+                  className={`w-full ${msg.body ? "mt-2" : ""}`}
+                  src={msg.audioUrl}
+                >
+                  <track kind="captions" />
+                </audio>
+              )}
               <p
                 className={`mt-1 text-[10px] ${
                   msg.isMine ? "text-[var(--brand-dark)]/60" : "text-white/40"
@@ -161,6 +229,19 @@ export function MessageThread({
         </p>
       )}
 
+      {role === "coach" && memberId && (
+        <div className={`${compact ? "px-3" : ""} pb-2`}>
+          <VoiceNoteRecorder
+            memberId={memberId}
+            attached={voiceNote}
+            onAttach={(url, durationSec) => setVoiceNote({ url, durationSec })}
+            onClear={() => setVoiceNote(null)}
+            disabled={sending}
+            label="Attach voice message"
+          />
+        </div>
+      )}
+
       <form
         onSubmit={handleSend}
         className={`sticky bottom-0 flex gap-2 border-t border-white/10 bg-[var(--brand-dark)] pt-3 ${
@@ -178,7 +259,7 @@ export function MessageThread({
         />
         <button
           type="submit"
-          disabled={sending || !draft.trim()}
+          disabled={sending || (!draft.trim() && !voiceNote)}
           className="tap-target shrink-0 rounded-xl bg-[var(--brand-diet)] px-5 py-3 text-sm font-semibold text-[var(--brand-dark)] disabled:opacity-50"
         >
           {sending ? "…" : "Send"}

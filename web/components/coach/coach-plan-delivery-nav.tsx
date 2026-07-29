@@ -21,6 +21,11 @@ const tabs = [
     match: (p: string) => p.startsWith("/coach/exercises"),
   },
   {
+    href: "/coach/plan-templates",
+    label: "Plan templates",
+    match: (p: string) => p.startsWith("/coach/plan-templates"),
+  },
+  {
     href: "/coach/vault",
     label: "Vault programs",
     match: (p: string) => p.startsWith("/coach/vault"),

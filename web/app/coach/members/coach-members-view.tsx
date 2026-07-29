@@ -7,7 +7,8 @@ import { coachCopy } from "@/lib/copy/coach-portal";
 
 type MemberRow = {
   id: string;
-  status: "lead" | "active" | "paused";
+  importKey?: string | null;
+  status: "lead" | "invited" | "active" | "paused";
   displayName: string | null;
   email: string;
   location: string | null;
@@ -48,8 +49,17 @@ export function CoachMembersView() {
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addFirstName, setAddFirstName] = useState("");
+  const [addLastName, setAddLastName] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addSuccess, setAddSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
+  function reloadMembers() {
+    setLoading(true);
     Promise.all([
       authFetch("/api/members", {}, getHeaders).then((r) => r.json()),
       authFetch("/api/members/alerts", {}, getHeaders).then((r) => r.json()),
@@ -71,9 +81,53 @@ export function CoachMembersView() {
         setProgress(progressBody.members ?? []);
       })
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    reloadMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getHeaders]);
 
+  async function submitAddClient(e: React.FormEvent) {
+    e.preventDefault();
+    setAddBusy(true);
+    setAddError(null);
+    setAddSuccess(null);
+    try {
+      const res = await authFetch(
+        "/api/members",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: addEmail,
+            firstName: addFirstName || undefined,
+            lastName: addLastName || undefined,
+            phone: addPhone || undefined,
+            status: "invited",
+          }),
+        },
+        getHeaders,
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setAddError(data.error ?? "Failed to add client");
+        return;
+      }
+      setAddSuccess(`${data.displayName ?? data.email} added (ID: ${data.importKey})`);
+      setAddEmail("");
+      setAddFirstName("");
+      setAddLastName("");
+      setAddPhone("");
+      setShowAdd(false);
+      reloadMembers();
+    } finally {
+      setAddBusy(false);
+    }
+  }
+
   const activeMembers = members.filter((m) => m.status === "active");
+  const invitedMembers = members.filter((m) => m.status === "invited");
   const pausedMembers = members.filter((m) => m.status === "paused");
   const leadMembers = members.filter((m) => m.status === "lead");
 
@@ -83,7 +137,7 @@ export function CoachMembersView() {
     {
       id: "enquiries",
       label: "New enquiries",
-      count: leads.length + leadMembers.length,
+      count: leads.length + leadMembers.length + invitedMembers.length,
     },
     {
       id: "progress",
@@ -93,11 +147,82 @@ export function CoachMembersView() {
   ];
 
   if (loading) {
-    return <p className="px-4 py-6 text-white/50">Loading members…</p>;
+    return <p className="text-white/50">Loading members…</p>;
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => setShowAdd((v) => !v)}
+          className="rounded-xl bg-[var(--brand-diet)] px-4 py-2 text-sm font-semibold text-[var(--brand-dark)]"
+        >
+          {showAdd ? "Cancel" : "Add client"}
+        </button>
+      </div>
+
+      {showAdd && (
+        <form
+          onSubmit={submitAddClient}
+          className="space-y-3 rounded-2xl border border-white/10 bg-[var(--brand-dark-surface)] p-4"
+        >
+          <p className="text-xs text-white/50">
+            Creates an invited client. They can sign in with Google using this email after you publish their plan.
+          </p>
+          <label className="block text-xs text-white/50">
+            Email (Gmail for login)
+            <input
+              type="email"
+              required
+              value={addEmail}
+              onChange={(e) => setAddEmail(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-xs text-white/50">
+              First name
+              <input
+                value={addFirstName}
+                onChange={(e) => setAddFirstName(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-xs text-white/50">
+              Last name
+              <input
+                value={addLastName}
+                onChange={(e) => setAddLastName(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          <label className="block text-xs text-white/50">
+            Phone
+            <input
+              value={addPhone}
+              onChange={(e) => setAddPhone(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+            />
+          </label>
+          {addError && <p className="text-xs text-red-300">{addError}</p>}
+          <button
+            type="submit"
+            disabled={addBusy}
+            className="rounded-xl bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold disabled:opacity-50"
+          >
+            {addBusy ? "Adding…" : "Create invited client"}
+          </button>
+        </form>
+      )}
+
+      {addSuccess && (
+        <p className="rounded-lg border border-[var(--brand-diet)]/30 bg-[var(--brand-diet)]/10 px-3 py-2 text-sm text-[var(--brand-diet)]">
+          {addSuccess}
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
@@ -133,6 +258,12 @@ export function CoachMembersView() {
 
       {tab === "enquiries" && (
         <div className="space-y-6">
+          {invitedMembers.length > 0 && (
+            <section>
+              <h2 className="text-xs uppercase tracking-wide text-white/40">Invited clients</h2>
+              <MemberList empty="" members={invitedMembers} showPlansLink />
+            </section>
+          )}
           {leadMembers.length > 0 && (
             <section>
               <h2 className="text-xs uppercase tracking-wide text-white/40">Member leads</h2>
@@ -261,6 +392,7 @@ function MemberCardContent({ member }: { member: MemberRow }) {
       </div>
       <p className="mt-1 text-xs text-white/50">
         {member.location ?? "—"} · Compliance {member.compliancePct}% · Streak {member.streakDays}d
+        {member.importKey ? ` · ${member.importKey}` : ""}
       </p>
       {member.programStartDate && (
         <p className="mt-1 text-xs text-white/40">

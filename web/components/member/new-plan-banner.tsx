@@ -9,6 +9,8 @@ type DeliveryMeta = {
   id: string;
   weekLabel: string;
   createdAt: string;
+  coachVoiceNoteUrl: string | null;
+  coachVoiceNoteDurationSec: number | null;
 };
 
 export function NewPlanBanner() {
@@ -34,6 +36,14 @@ export function NewPlanBanner() {
       <p className="mt-1 text-xs text-white/50">
         Delivered {new Date(delivery.createdAt).toLocaleDateString()}
       </p>
+      {delivery.coachVoiceNoteUrl && (
+        <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+          <p className="text-xs uppercase tracking-wide text-white/50">Voice from your coach</p>
+          <audio controls className="mt-2 w-full" src={delivery.coachVoiceNoteUrl}>
+            <track kind="captions" />
+          </audio>
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         <Link
           href="/member/workouts"

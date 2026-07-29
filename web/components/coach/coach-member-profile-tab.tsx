@@ -119,9 +119,18 @@ export function CoachMemberProfileTab({
               }
             >
               <option value="active">Active</option>
+              <option value="invited">Invited (not logged in yet)</option>
               <option value="paused">Paused</option>
               <option value="lead">Lead</option>
             </select>
+          </Field>
+          <Field label="Import key (stable ID)">
+            <input
+              className={inputClass}
+              value={profile.importKey ?? ""}
+              readOnly
+              disabled
+            />
           </Field>
           <Field label="Location label">
             <input

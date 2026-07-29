@@ -15,6 +15,8 @@ export type ResolvedDelivery = {
   snapshot: PlanDeliverySnapshot;
   expiresAt: Date;
   revokedAt: Date | null;
+  coachVoiceNoteUrl: string | null;
+  coachVoiceNoteDurationSec: number | null;
 };
 
 export function mintDeliveryToken(): string {
@@ -81,6 +83,8 @@ export async function resolveDeliveryToken(
       snapshot: row.snapshotJson as PlanDeliverySnapshot,
       expiresAt: row.expiresAt,
       revokedAt: row.revokedAt,
+      coachVoiceNoteUrl: row.coachVoiceNoteUrl,
+      coachVoiceNoteDurationSec: row.coachVoiceNoteDurationSec,
     },
   };
 }

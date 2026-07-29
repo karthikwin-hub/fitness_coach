@@ -165,15 +165,21 @@ function CoachMemberProfileContent() {
 
       {activeTab === "check-ins" && (
         <div className="mx-auto max-w-2xl space-y-6 px-4 py-6 pb-8">
+          <section>
+            <h2 className="mb-3 font-heading text-sm text-white/70">Messages</h2>
+            <MessageThread
+              role="coach"
+              memberId={memberId}
+              compact
+              initialVisibleCount={5}
+              loadMoreCount={10}
+            />
+          </section>
           <p className="text-sm text-white/50">
-            Recent meals, check-ins, and messages — same view as the command center.
+            Recent meals and check-ins — same view as the command center.
           </p>
           <MemberDiarySummary memberId={memberId} />
           <MemberCheckInHistory memberId={memberId} />
-          <section>
-            <h2 className="mb-3 font-heading text-sm text-white/70">Messages</h2>
-            <MessageThread role="coach" memberId={memberId} compact />
-          </section>
         </div>
       )}
 

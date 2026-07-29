@@ -85,11 +85,26 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const updates: {
     status?: "pending" | "approved" | "flagged";
     coachNote?: string | null;
+    coachVoiceNoteUrl?: string | null;
+    coachVoiceNoteDurationSec?: number | null;
   } = {};
   if (body.status !== undefined) {
     updates.status = body.status as "pending" | "approved" | "flagged";
   }
   if (body.coachNote !== undefined) updates.coachNote = body.coachNote;
+  if (body.coachVoiceNoteUrl !== undefined) {
+    updates.coachVoiceNoteUrl =
+      typeof body.coachVoiceNoteUrl === "string" && body.coachVoiceNoteUrl.trim()
+        ? body.coachVoiceNoteUrl.trim()
+        : null;
+  }
+  if (body.coachVoiceNoteDurationSec !== undefined) {
+    updates.coachVoiceNoteDurationSec =
+      typeof body.coachVoiceNoteDurationSec === "number" &&
+      body.coachVoiceNoteDurationSec > 0
+        ? Math.round(body.coachVoiceNoteDurationSec)
+        : null;
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No updates provided" }, { status: 400 });

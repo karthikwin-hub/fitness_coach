@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/auth/require-auth";
-import { CoachPlanDeliveryNav } from "@/components/coach/coach-plan-delivery-nav";
+import { CoachPlanDeliveryShell } from "@/components/coach/coach-plan-delivery-shell";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
 
 type PilotMetrics = {
@@ -39,20 +39,9 @@ export default function PilotPage() {
 
   return (
     <RequireAuth roles={["coach", "platform_admin"]}>
-      <div className="min-h-dvh bg-[var(--brand-dark)] text-white">
-        <header className="border-b border-white/10 px-4 py-4">
-          <h1 className="font-heading text-xl">Helna pilot metrics</h1>
-          <p className="text-sm text-white/60">
-            Target: publish a client plan in under 5 minutes
-          </p>
-          <div className="mt-4">
-            <CoachPlanDeliveryNav />
-          </div>
-        </header>
-
-        <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
-          {metrics && (
-            <>
+      <CoachPlanDeliveryShell eyebrow="Pilot metrics" title="Pilot metrics">
+        {metrics && (
+          <div className="space-y-6">
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4 text-center">
                   <p className="text-2xl font-bold text-[var(--brand-diet)]">
@@ -121,10 +110,9 @@ export default function PilotPage() {
                   <li>Save → Publish (timer stops and logs duration)</li>
                 </ol>
               </div>
-            </>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+      </CoachPlanDeliveryShell>
     </RequireAuth>
   );
 }

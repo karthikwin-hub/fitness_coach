@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getAuthUser, requireCoach } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { exercises } from "@/lib/db/schema";
+import { normalizeYoutubeVideoId } from "@/lib/youtube/parse-video-id";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -25,11 +26,24 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  let youtubeVideoId = existing.youtubeVideoId;
+  if (body.youtubeVideoId !== undefined) {
+    if (body.youtubeVideoId === null || body.youtubeVideoId === "") {
+      youtubeVideoId = null;
+    } else {
+      const parsed = normalizeYoutubeVideoId(String(body.youtubeVideoId));
+      if (!parsed) {
+        return NextResponse.json({ error: "Invalid YouTube URL or video ID" }, { status: 400 });
+      }
+      youtubeVideoId = parsed;
+    }
+  }
+
   const [item] = await db
     .update(exercises)
     .set({
       name: body.name ?? existing.name,
-      youtubeVideoId: body.youtubeVideoId ?? existing.youtubeVideoId,
+      youtubeVideoId,
       muscleGroup: body.muscleGroup ?? existing.muscleGroup,
       equipment: body.equipment ?? existing.equipment,
       defaultReps: body.defaultReps ?? existing.defaultReps,

@@ -2,6 +2,8 @@ import { and, eq } from "drizzle-orm";
 import type { DecodedIdToken } from "firebase-admin/auth";
 import { db } from "@/lib/db";
 import { members, tenants, users } from "@/lib/db/schema";
+import { isInviteFirebaseUid } from "@/lib/auth/invite-uid";
+import { getTenantFeatures } from "@/lib/tenant/features";
 import type { AuthUser } from "./server";
 
 function resolveRole(email: string | undefined): "coach" | "member" {
@@ -11,6 +13,10 @@ function resolveRole(email: string | undefined): "coach" | "member" {
     .filter(Boolean);
   if (email && coachEmails.includes(email.toLowerCase())) return "coach";
   return "member";
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
 export async function provisionFirebaseUser(
@@ -28,13 +34,88 @@ export async function provisionFirebaseUser(
   if (!tenant) return null;
   if (tenant.status === "suspended") return null;
 
+  const email = normalizeEmail(decoded.email ?? `${decoded.uid}@firebase.local`);
+  const features = getTenantFeatures(tenant);
+
+  const [existingByUid] = await db
+    .select()
+    .from(users)
+    .where(eq(users.firebaseUid, decoded.uid))
+    .limit(1);
+
+  if (existingByUid) {
+    return {
+      id: existingByUid.id,
+      firebaseUid: existingByUid.firebaseUid,
+      email: existingByUid.email,
+      displayName: existingByUid.displayName,
+      role: existingByUid.role,
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+    };
+  }
+
+  const [invitedUser] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.tenantId, tenant.id), eq(users.email, email)))
+    .limit(1);
+
+  if (invitedUser && isInviteFirebaseUid(invitedUser.firebaseUid)) {
+    const [linked] = await db
+      .update(users)
+      .set({
+        firebaseUid: decoded.uid,
+        displayName: decoded.name ?? invitedUser.displayName,
+      })
+      .where(eq(users.id, invitedUser.id))
+      .returning();
+
+    await db
+      .update(members)
+      .set({ status: "active" })
+      .where(
+        and(
+          eq(members.userId, invitedUser.id),
+          eq(members.tenantId, tenant.id),
+          eq(members.status, "invited"),
+        ),
+      );
+
+    return {
+      id: linked.id,
+      firebaseUid: linked.firebaseUid,
+      email: linked.email,
+      displayName: linked.displayName,
+      role: linked.role,
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+    };
+  }
+
+  if (invitedUser) {
+    return {
+      id: invitedUser.id,
+      firebaseUid: invitedUser.firebaseUid,
+      email: invitedUser.email,
+      displayName: invitedUser.displayName,
+      role: invitedUser.role,
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+    };
+  }
+
   const role = resolveRole(decoded.email);
+  if (role === "member" && !features.selfServiceSignup) {
+    return null;
+  }
+
   const [user] = await db
     .insert(users)
     .values({
       tenantId: tenant.id,
       firebaseUid: decoded.uid,
-      email: decoded.email ?? `${decoded.uid}@firebase.local`,
+      email,
       displayName: decoded.name ?? null,
       role,
     })

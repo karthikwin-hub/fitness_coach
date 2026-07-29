@@ -22,6 +22,8 @@ import { createTrainingDays } from "../plans/training";
 import { recordPublication } from "../plans/queries";
 import { installTenantPlanDefaults } from "../plans/install-defaults";
 import { ensureJourneyDemoData } from "./seed-journey-demo";
+import { seedDemoMemberHistory, DEMO_HISTORY_IMPORT_KEYS } from "./demo-member-history";
+import { seedDemoPlanTemplates } from "./demo-plan-templates";
 import { seedVaultDemoCatalog, seedVaultCatalogMarketing } from "./seed-vault";
 import { ensureMemberCoachAssignments, getCanonicalCoachId } from "../members/canonical-coach";
 import {
@@ -151,6 +153,12 @@ async function seed() {
   let tenantId: string;
   const existing = await db.select().from(tenants).where(eq(tenants.slug, "abstrack")).limit(1);
 
+  const tenantFeatures = {
+    selfServiceSignup: false,
+    quizEnabled: false,
+    publicLoginEnabled: true,
+  };
+
   if (existing.length > 0) {
     tenantId = existing[0].id;
     await db
@@ -159,6 +167,7 @@ async function seed() {
         status: "active",
         subdomain: "abstrack",
         brandingJson: branding,
+        featuresJson: tenantFeatures,
       })
       .where(eq(tenants.id, tenantId));
     console.log("Tenant abstrack exists.");
@@ -171,6 +180,7 @@ async function seed() {
         status: "active",
         subdomain: "abstrack",
         brandingJson: branding,
+        featuresJson: tenantFeatures,
         aiAutoApproveThreshold: 0.85,
         calComUrl: process.env.NEXT_PUBLIC_CAL_COM_URL ?? "",
       })
@@ -216,12 +226,13 @@ async function seed() {
   }
 
   const memberUid = "dev-local-member";
+  const demoMemberEmail = "demo.member@abstrack.com";
   const memberUserRows = await db.select().from(users).where(eq(users.firebaseUid, memberUid)).limit(1);
   if (memberUserRows.length === 0) {
     const [memberUser] = await db.insert(users).values({
       tenantId,
       firebaseUid: memberUid,
-      email: "member@abstrack.local",
+      email: demoMemberEmail,
       displayName: "Demo Member (Hetal)",
       role: "member",
     }).returning();
@@ -231,6 +242,7 @@ async function seed() {
       userId: memberUser.id,
       coachId,
       status: "active",
+      importKey: "DEMO-MEMBER-001",
       location: "USA",
       compliancePct: 82,
       streakDays: 5,
@@ -240,6 +252,22 @@ async function seed() {
       healthGoalsJson: ["Reduce inflammation", "Osteoporosis support"],
       stepGoal: 8000,
     });
+  } else {
+    await db
+      .update(users)
+      .set({ email: demoMemberEmail, displayName: "Demo Member (Hetal)" })
+      .where(eq(users.firebaseUid, memberUid));
+    const [memberRow] = await db
+      .select()
+      .from(members)
+      .where(eq(members.userId, memberUserRows[0].id))
+      .limit(1);
+    if (memberRow) {
+      await db
+        .update(members)
+        .set({ importKey: "DEMO-MEMBER-001" })
+        .where(eq(members.id, memberRow.id));
+    }
   }
 
   const installed = await installTenantPlanDefaults(tenantId);
@@ -434,6 +462,9 @@ async function seed() {
   for (const client of pilotClients) {
     await ensurePilotClient(client);
   }
+
+  await seedDemoPlanTemplates(tenantId);
+  await seedDemoMemberHistory(tenantId, coachId, exerciseMapBySlug);
 
   const existingCheckIns = await db
     .select()
@@ -705,7 +736,7 @@ async function seed() {
     console.log(`Reassigned ${reassigned} member(s) to canonical coach.`);
   }
   const journeyCoachId = (await getCanonicalCoachId(tenantId)) ?? coachId;
-  await ensureJourneyDemoData(tenantId, journeyCoachId);
+  await ensureJourneyDemoData(tenantId, journeyCoachId, DEMO_HISTORY_IMPORT_KEYS);
   await seedVaultDemoCatalog(tenantId);
   await seedVaultCatalogMarketing(tenantId);
   process.exit(0);

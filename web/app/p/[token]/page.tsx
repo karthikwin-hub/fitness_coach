@@ -100,6 +100,7 @@ export default async function PublicPlanViewerPage({ params }: Props) {
   const snapshot = resolved.delivery.snapshot as PlanDeliverySnapshot;
   const brand = snapshot.branding.name ?? "Coach Platform";
   const name = memberDisplayName(snapshot);
+  const voiceUrl = resolved.delivery.coachVoiceNoteUrl;
 
   return (
     <div className="min-h-dvh bg-[var(--brand-dark)] text-white">
@@ -126,6 +127,14 @@ export default async function PublicPlanViewerPage({ params }: Props) {
             Sign in to log workouts
           </Link>
         </div>
+        {voiceUrl && (
+          <div className="mt-4 rounded-xl border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 p-4">
+            <p className="text-xs uppercase tracking-wide text-white/50">Voice from your coach</p>
+            <audio controls className="mt-3 w-full" src={voiceUrl}>
+              <track kind="captions" />
+            </audio>
+          </div>
+        )}
       </header>
 
       <main className="mx-auto max-w-2xl space-y-8 px-4 py-6">

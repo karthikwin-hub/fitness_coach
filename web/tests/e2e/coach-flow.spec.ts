@@ -21,10 +21,16 @@ test.describe("Flow C — Coach command center", () => {
   });
 
   test("TC-COACH-NAV: top nav on all coach screens", async ({ page }) => {
-    await expect(page.getByRole("link", { name: "Members" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Calendar" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Plan delivery" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    const nav = page.locator("nav").first();
+    const navText = await nav.innerText();
+    const commandIdx = navText.indexOf("Command center");
+    const planIdx = navText.indexOf("Plan delivery");
+    const membersIdx = navText.indexOf("Members");
+    const calendarIdx = navText.indexOf("Calendar");
+    expect(commandIdx).toBeGreaterThanOrEqual(0);
+    expect(planIdx).toBeGreaterThan(commandIdx);
+    expect(membersIdx).toBeGreaterThan(planIdx);
+    expect(calendarIdx).toBeGreaterThan(membersIdx);
 
     await page.goto("/coach/settings");
     await expect(page.getByRole("link", { name: "Command center" })).toBeVisible();
@@ -125,5 +131,15 @@ test.describe("Flow C — Coach command center", () => {
     });
     expect(result.ok).toBe(true);
     expect(result.status).toBe(201);
+  });
+
+  test("TC-UXP3-001: coach publishes broadcast note on command center", async ({ page }) => {
+    await expect(page.getByRole("heading", { name: "Coach note to members" })).toBeVisible({
+      timeout: 15_000,
+    });
+    const textarea = page.getByPlaceholder(/mindset note|weekly focus/i);
+    await textarea.fill("Great week team — keep protein at lunch.");
+    await page.getByRole("button", { name: "Publish note" }).click();
+    await expect(page.getByText(/Saved|member can see/i)).toBeVisible({ timeout: 10_000 });
   });
 });

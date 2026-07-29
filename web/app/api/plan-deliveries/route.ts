@@ -38,7 +38,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let body: { memberId?: string };
+  let body: {
+    memberId?: string;
+    coachVoiceNoteUrl?: string | null;
+    coachVoiceNoteDurationSec?: number | null;
+  };
   try {
     body = await request.json();
   } catch {
@@ -68,6 +72,16 @@ export async function POST(request: NextRequest) {
   const tokenHash = hashDeliveryToken(token);
   const expiresAt = deliveryExpiresAt();
 
+  const coachVoiceNoteUrl =
+    typeof body.coachVoiceNoteUrl === "string" && body.coachVoiceNoteUrl.trim()
+      ? body.coachVoiceNoteUrl.trim()
+      : null;
+  const coachVoiceNoteDurationSec =
+    typeof body.coachVoiceNoteDurationSec === "number" &&
+    body.coachVoiceNoteDurationSec > 0
+      ? Math.round(body.coachVoiceNoteDurationSec)
+      : null;
+
   const [row] = await db
     .insert(planDeliveries)
     .values({
@@ -80,6 +94,8 @@ export async function POST(request: NextRequest) {
       tokenHash,
       expiresAt,
       createdBy: user.id,
+      coachVoiceNoteUrl,
+      coachVoiceNoteDurationSec,
     })
     .returning();
 

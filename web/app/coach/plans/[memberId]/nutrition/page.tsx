@@ -23,6 +23,14 @@ type NutritionPlan = {
 };
 
 type ContentBlock = { id: string; title: string; category: string };
+type PlanTemplateOption = {
+  id: string;
+  key: string;
+  name: string;
+  hasNutrition: boolean;
+  type: string;
+};
+type MemberOption = { id: string; displayName: string };
 
 export default function NutritionBuilderPage() {
   const { memberId } = useParams<{ memberId: string }>();
@@ -32,6 +40,14 @@ export default function NutritionBuilderPage() {
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [templates, setTemplates] = useState<PlanTemplateOption[]>([]);
+  const [members, setMembers] = useState<MemberOption[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [copySourceMemberId, setCopySourceMemberId] = useState("");
+  const [copySourcePlans, setCopySourcePlans] = useState<
+    Array<{ id: string; weekNumber: number }>
+  >([]);
+  const [copySourcePlanId, setCopySourcePlanId] = useState("");
 
   async function loadPlans() {
     const [plans, allBlocks] = await Promise.all([
@@ -44,6 +60,16 @@ export default function NutritionBuilderPage() {
 
   useEffect(() => {
     loadPlans();
+    authFetch("/api/plan-templates", {}, getHeaders)
+      .then((r) => r.json())
+      .then((rows: PlanTemplateOption[]) =>
+        setTemplates(rows.filter((t) => t.hasNutrition)),
+      );
+    authFetch("/api/members", {}, getHeaders)
+      .then((r) => r.json())
+      .then((rows: MemberOption[]) =>
+        setMembers(rows.filter((m) => m.id !== memberId)),
+      );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId]);
 
@@ -114,6 +140,100 @@ export default function NutritionBuilderPage() {
     setMessage(`Cloned to week ${newPlan.weekNumber} (draft).`);
   }
 
+  async function saveAsTemplate() {
+    if (!plan) return;
+    const name = window.prompt("Template name");
+    if (!name?.trim()) return;
+    const res = await authFetch("/api/plan-templates/from-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        memberId,
+        nutritionPlanId: plan.id,
+        weekNumber: plan.weekNumber,
+        name: name.trim(),
+      }),
+    }, getHeaders);
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(data.error ?? "Save as template failed.");
+      return;
+    }
+    setMessage(`Saved template "${data.name}".`);
+  }
+
+  async function applySelectedTemplate() {
+    if (!selectedTemplateId) return;
+    timer.start();
+    const template = templates.find((t) => t.id === selectedTemplateId);
+    const res = await authFetch(
+      template?.type === "plan_bundle"
+        ? `/api/plan-templates/${selectedTemplateId}/apply`
+        : "/api/nutrition-plans/from-template",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberId,
+          templateId: selectedTemplateId,
+          template: template?.key ?? selectedTemplateId,
+          weekNumber: (plan?.weekNumber ?? 0) + 1,
+        }),
+      },
+      getHeaders,
+    );
+    if (!res.ok) {
+      const data = await res.json();
+      setMessage(data.error ?? "Apply failed.");
+      return;
+    }
+    const data = await res.json();
+    if (data.id) {
+      setPlan(data);
+    } else {
+      await loadPlans();
+    }
+    setMessage("Template applied (draft).");
+  }
+
+  async function loadCopySourcePlans(sourceMemberId: string) {
+    setCopySourceMemberId(sourceMemberId);
+    setCopySourcePlanId("");
+    if (!sourceMemberId) {
+      setCopySourcePlans([]);
+      return;
+    }
+    const list = await authFetch(
+      `/api/nutrition-plans?memberId=${sourceMemberId}`,
+      {},
+      getHeaders,
+    ).then((r) => r.json());
+    setCopySourcePlans(list);
+    if (list[0]) setCopySourcePlanId(list[0].id);
+  }
+
+  async function copyFromClient() {
+    if (!copySourcePlanId) return;
+    timer.start();
+    const res = await authFetch("/api/nutrition-plans/copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourcePlanId: copySourcePlanId,
+        targetMemberId: memberId,
+        weekNumber: (plan?.weekNumber ?? 0) + 1,
+      }),
+    }, getHeaders);
+    if (!res.ok) {
+      const data = await res.json();
+      setMessage(data.error ?? "Copy failed.");
+      return;
+    }
+    const newPlan = await res.json();
+    setPlan(newPlan);
+    setMessage(`Copied nutrition plan to week ${newPlan.weekNumber}.`);
+  }
+
   function toggleBlock(blockId: string) {
     if (!plan) return;
     const ids = plan.blockIdsJson ?? [];
@@ -172,6 +292,83 @@ export default function NutritionBuilderPage() {
 
         <div className="mx-auto max-w-2xl space-y-4 px-4 py-6">
           {message && <p className="rounded-lg bg-[var(--brand-diet)]/20 px-3 py-2 text-sm">{message}</p>}
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={saveAsTemplate}
+              className="rounded-lg border border-[var(--brand-diet)]/40 px-3 py-1.5 text-xs text-[var(--brand-diet)]"
+            >
+              Save as template
+            </button>
+          </div>
+
+          {(templates.length > 0 || members.length > 0) && (
+            <section className="rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4 space-y-3">
+              <h2 className="font-heading text-sm">Reuse plans</h2>
+              {templates.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={selectedTemplateId}
+                    onChange={(e) => setSelectedTemplateId(e.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/20 px-2 py-1.5 text-xs"
+                  >
+                    <option value="">Apply template…</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={applySelectedTemplate}
+                    disabled={!selectedTemplateId}
+                    className="rounded-lg border border-white/20 px-3 py-1.5 text-xs disabled:opacity-40"
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
+              {members.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={copySourceMemberId}
+                    onChange={(e) => loadCopySourcePlans(e.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/20 px-2 py-1.5 text-xs"
+                  >
+                    <option value="">Copy from client…</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.displayName}
+                      </option>
+                    ))}
+                  </select>
+                  {copySourcePlans.length > 0 && (
+                    <select
+                      value={copySourcePlanId}
+                      onChange={(e) => setCopySourcePlanId(e.target.value)}
+                      className="rounded-lg border border-white/15 bg-black/20 px-2 py-1.5 text-xs"
+                    >
+                      {copySourcePlans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          Week {p.weekNumber}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    onClick={copyFromClient}
+                    disabled={!copySourcePlanId}
+                    className="rounded-lg border border-white/20 px-3 py-1.5 text-xs disabled:opacity-40"
+                  >
+                    Copy
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             {(

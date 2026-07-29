@@ -9,6 +9,17 @@ import { isDevAuthEnabled } from "@/lib/auth/dev-auth-enabled";
 const links = [
   { href: "/coach", label: "Command center", match: (p: string) => p === "/coach" },
   {
+    href: "/coach/plans",
+    label: "Plan delivery",
+    match: (p: string) =>
+      p.startsWith("/coach/plans") ||
+      p.startsWith("/coach/content-blocks") ||
+      p.startsWith("/coach/exercises") ||
+      p.startsWith("/coach/vault") ||
+      p.startsWith("/coach/pilot") ||
+      p.startsWith("/coach/plan-templates"),
+  },
+  {
     href: "/coach/members",
     label: "Members",
     match: (p: string) => p.startsWith("/coach/members"),
@@ -19,19 +30,10 @@ const links = [
     match: (p: string) => p.startsWith("/coach/calendar"),
   },
   {
-    href: "/coach/plans",
-    label: "Plan delivery",
-    match: (p: string) =>
-      p.startsWith("/coach/plans") ||
-      p.startsWith("/coach/content-blocks") ||
-      p.startsWith("/coach/exercises") ||
-      p.startsWith("/coach/vault") ||
-      p.startsWith("/coach/pilot"),
-  },
-  {
     href: "/coach/settings",
     label: "Settings",
-    match: (p: string) => p.startsWith("/coach/settings"),
+    match: (p: string) =>
+      p.startsWith("/coach/settings") || p.startsWith("/coach/import"),
   },
 ];
 

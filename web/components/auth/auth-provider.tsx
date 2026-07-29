@@ -26,11 +26,12 @@ import {
 } from "@/lib/auth/dev-personas";
 import { isDevAuthEnabled } from "@/lib/auth/dev-auth-enabled";
 import {
-  clearDemoCoachToken,
+  clearDemoAuthToken,
   DEMO_COACH_EMAIL,
+  DEMO_MEMBER_EMAIL,
   isClientDemoLoginEnabled,
-  readDemoCoachToken,
-  storeDemoCoachToken,
+  readDemoAuthToken,
+  storeDemoAuthToken,
 } from "@/lib/auth/demo-login-shared";
 
 export type AppUser = {
@@ -49,6 +50,7 @@ type AuthContextValue = {
   demoLoginEnabled: boolean;
   signInWithGoogle: () => Promise<void>;
   signInAsDemoCoach: (email: string) => Promise<void>;
+  signInAsDemoUser: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshAppUser: () => Promise<void>;
   switchDevPersona: (personaId: DevPersonaId) => void;
@@ -96,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetchAppUser(firebaseUser);
       return;
     }
-    const demoToken = readDemoCoachToken();
+    const demoToken = readDemoAuthToken();
     if (demoToken) {
       await fetchAppUserWithToken(demoToken);
     }
@@ -104,14 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function bootstrap() {
-      const demoToken = readDemoCoachToken();
+      const demoToken = readDemoAuthToken();
       if (demoToken && demoLoginEnabled) {
         const ok = await fetchAppUserWithToken(demoToken);
         if (ok) {
           setLoading(false);
           return;
         }
-        clearDemoCoachToken();
+        clearDemoAuthToken();
       }
 
       if (!firebaseConfigured) {
@@ -131,9 +133,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const unsub = onAuthStateChanged(auth, async (user) => {
         setFirebaseUser(user);
         if (user) {
-          clearDemoCoachToken();
+          clearDemoAuthToken();
           await fetchAppUser(user);
-        } else if (!readDemoCoachToken()) {
+        } else if (!readDemoAuthToken()) {
           setAppUser(null);
         }
         setLoading(false);
@@ -151,11 +153,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     const auth = getClientAuth();
     if (!auth) throw new Error("Firebase is not configured");
-    clearDemoCoachToken();
+    clearDemoAuthToken();
     await signInWithPopup(auth, googleProvider);
   }, []);
 
-  const signInAsDemoCoach = useCallback(
+  const signInAsDemoUser = useCallback(
     async (email: string) => {
       const auth = getClientAuth();
       if (auth) {
@@ -178,14 +180,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const payload = (await res.json()) as {
+        token: string;
         user: AppUser;
       };
-      storeDemoCoachToken();
+      storeDemoAuthToken(payload.token);
       setFirebaseUser(null);
       setAppUser(payload.user);
     },
     [],
   );
+
+  const signInAsDemoCoach = signInAsDemoUser;
 
   const switchDevPersona = useCallback((personaId: DevPersonaId) => {
     storeDevPersonaId(personaId);
@@ -209,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     clearDevPersonaStorage();
-    clearDemoCoachToken();
+    clearDemoAuthToken();
     setFirebaseUser(null);
     setAppUser(null);
   }, []);
@@ -223,6 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       demoLoginEnabled,
       signInWithGoogle,
       signInAsDemoCoach,
+      signInAsDemoUser,
       signOut,
       refreshAppUser,
       switchDevPersona,
@@ -236,6 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       demoLoginEnabled,
       signInWithGoogle,
       signInAsDemoCoach,
+      signInAsDemoUser,
       signOut,
       refreshAppUser,
       switchDevPersona,

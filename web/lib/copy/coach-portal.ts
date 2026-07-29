@@ -17,4 +17,12 @@ export const coachCopy = {
   settingsTitle: "Brand & voice",
   broadcastTitle: "Coach note to members",
   broadcastHint: "Optional — shown on member dashboards when active. Not required daily.",
+  retentionTitle: "Data retention & storage",
+  retentionHint:
+    "Permanently delete pictures, audio, video, and communication logs older than the selected period. Check-in numbers (weight, sleep, compliance) are kept; attachments are removed.",
+  retentionCostHint:
+    "Voice notes are typically 1–5 MB, photos 0.5–3 MB, and videos 10–50 MB. Shorter retention reduces Firebase storage costs.",
+  retentionLastPurge: (iso: string) => `Last cleanup: ${new Date(iso).toLocaleString()}`,
+  retentionPurgeConfirm:
+    "Delete all messages, food diary entries, and media older than your retention period? This cannot be undone.",
 } as const;
