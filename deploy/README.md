@@ -7,6 +7,7 @@
 | [redeploy.bat](redeploy.bat) | Double-click / CLI redeploy to Oracle VM |
 | [deploy-app.sh](deploy-app.sh) | macOS/Linux deploy |
 | [migrate-db.ps1](migrate-db.ps1) | Push schema + seed on VM |
+| [reset-prod-members.ps1](reset-prod-members.ps1) | Keep Avinash/Hetal/Shruti, remove others, seed Gautam/Sarah on VM |
 | [sql/2026-07-26-vault-products.sql](sql/2026-07-26-vault-products.sql) | Vault catalog tables |
 | [sql/2026-07-26-vault-catalog-settings.sql](sql/2026-07-26-vault-catalog-settings.sql) | Storefront marketing settings |
 | [vm-setup.sh](vm-setup.sh) | One-time VM: user, Node, Docker, swap |
@@ -28,5 +29,15 @@
 ```
 
 Coaches can also run cleanup manually from Settings → Data retention & storage.
+
+**Production member reset (destructive):** backs up Postgres on the VM, then runs `scripts/reset-production-members.ts`:
+
+```powershell
+deploy/reset-prod-members.ps1 `
+  -Remote ubuntu@129.154.47.155 `
+  -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach
+```
+
+Preview with `-DryRun`. Keeps `hetal@abstrack.local`, `avinash@abstrack.local`, `shruti@abstrack.local`; seeds Gautam/Sarah demo history.
 
 **Firebase:** [../docs/firebase-production-setup.md](../docs/firebase-production-setup.md)
