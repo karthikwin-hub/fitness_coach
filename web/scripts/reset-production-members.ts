@@ -8,7 +8,18 @@ import {
   KEEP_MEMBER_EMAILS,
   shouldKeepMemberEmail,
 } from "../lib/db/reset-production-members";
-import { exercises, members, messages, planTemplates, tenants, users } from "../lib/db/schema";
+import {
+  appointments,
+  exercises,
+  members,
+  messages,
+  planDeliveries,
+  planPublications,
+  planTemplates,
+  coachBroadcasts,
+  tenants,
+  users,
+} from "../lib/db/schema";
 import { getCanonicalCoachId } from "../lib/members/canonical-coach";
 import { installTenantPlanDefaults } from "../lib/plans/install-defaults";
 
@@ -89,6 +100,8 @@ async function main() {
   const removeMemberIds = toRemove.map((r) => r.memberId);
 
   if (!dryRun && removeUserIds.length > 0) {
+    const coachId = await getCanonicalCoachId(tenant.id);
+
     await db
       .delete(messages)
       .where(
@@ -103,6 +116,32 @@ async function main() {
         .update(planTemplates)
         .set({ sourceMemberId: null })
         .where(inArray(planTemplates.sourceMemberId, removeMemberIds));
+
+      await db
+        .delete(appointments)
+        .where(inArray(appointments.memberId, removeMemberIds));
+    }
+
+    if (coachId) {
+      await db
+        .update(appointments)
+        .set({ createdBy: coachId })
+        .where(inArray(appointments.createdBy, removeUserIds));
+
+      await db
+        .update(planDeliveries)
+        .set({ createdBy: coachId })
+        .where(inArray(planDeliveries.createdBy, removeUserIds));
+
+      await db
+        .update(planPublications)
+        .set({ publishedBy: coachId })
+        .where(inArray(planPublications.publishedBy, removeUserIds));
+
+      await db
+        .update(coachBroadcasts)
+        .set({ createdBy: coachId })
+        .where(inArray(coachBroadcasts.createdBy, removeUserIds));
     }
 
     await db.delete(users).where(inArray(users.id, removeUserIds));
