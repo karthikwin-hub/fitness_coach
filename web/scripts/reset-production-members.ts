@@ -22,6 +22,7 @@ import {
 } from "../lib/db/schema";
 import { getCanonicalCoachId } from "../lib/members/canonical-coach";
 import { installTenantPlanDefaults } from "../lib/plans/install-defaults";
+import { EXERCISE_CATALOG } from "../lib/plans/exercise-catalog";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
@@ -157,6 +158,24 @@ async function main() {
     const exerciseMapBySlug: Record<string, string> = {};
     for (const ex of allExercises) {
       if (ex.slug) exerciseMapBySlug[ex.slug] = ex.id;
+    }
+
+    for (const seed of EXERCISE_CATALOG) {
+      if (exerciseMapBySlug[seed.slug]) continue;
+      const [inserted] = await db
+        .insert(exercises)
+        .values({
+          tenantId: tenant.id,
+          slug: seed.slug,
+          name: seed.name,
+          youtubeVideoId: seed.youtubeVideoId,
+          muscleGroup: seed.muscleGroup,
+          equipment: seed.equipment,
+          defaultReps: seed.defaultReps,
+          defaultSets: seed.defaultSets,
+        })
+        .returning();
+      exerciseMapBySlug[seed.slug] = inserted.id;
     }
 
     const coachId = await getCanonicalCoachId(tenant.id);
