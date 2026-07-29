@@ -20,7 +20,11 @@ export function isLocalDatabaseUrl(databaseUrl: string): boolean {
   try {
     const parsed = new URL(databaseUrl);
     const host = parsed.hostname.toLowerCase();
-    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+    const port = parsed.port || "5432";
+    // Local dev docker-compose maps host 5435 -> postgres 5432; prod VM uses 127.0.0.1:5432.
+    return (
+      (host === "localhost" || host === "127.0.0.1" || host === "::1") && port === "5435"
+    );
   } catch {
     return false;
   }

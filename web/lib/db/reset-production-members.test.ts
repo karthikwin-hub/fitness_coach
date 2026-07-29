@@ -24,12 +24,12 @@ describe("reset-production-members helpers", () => {
     expect(shouldKeepMemberEmail("member@abstrack.local")).toBe(false);
   });
 
-  it("detects local database URLs", () => {
+  it("detects local dev database URLs (port 5435 only)", () => {
     expect(isLocalDatabaseUrl("postgresql://fitness:fitness@localhost:5435/fitness_coach")).toBe(
       true,
     );
     expect(isLocalDatabaseUrl("postgresql://fitness:fitness@127.0.0.1:5432/fitness_coach")).toBe(
-      true,
+      false,
     );
     expect(isLocalDatabaseUrl("postgresql://fitness:fitness@129.154.47.155:5432/fitness_coach")).toBe(
       false,
