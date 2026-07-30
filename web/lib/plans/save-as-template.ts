@@ -7,11 +7,11 @@ import {
   trainingPlans,
 } from "@/lib/db/schema";
 import {
-  blockIdsToSlugs,
   type NutritionTemplate,
   type PlanBundleStructure,
   serializePlanBundleStructure,
 } from "@/lib/plans/template-bundle";
+import { blockIdsToSlugs } from "@/lib/plans/template-bundle-db";
 import {
   type TrainingTemplateStructure,
   type TemplateDay,

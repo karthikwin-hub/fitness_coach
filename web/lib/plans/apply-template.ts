@@ -5,11 +5,10 @@ import {
   extractNutritionFromTemplate,
   extractTrainingBlockSlugsFromTemplate,
   extractTrainingFromTemplate,
-  resolveBlockSlugsToIds,
 } from "@/lib/plans/template-bundle";
-import {
-  resolveTemplateDays,
-} from "@/lib/plans/templates";
+import { resolveBlockSlugsToIds } from "@/lib/plans/template-bundle-db";
+import { buildExerciseMapBySlugWithOwnedPreference } from "@/lib/plans/prefer-owned-exercise";
+import { resolveTemplateDays } from "@/lib/plans/templates";
 import { createTrainingPlanFromInput } from "@/lib/plans/training";
 
 export async function getPlanTemplateByKeyOrId(
@@ -55,10 +54,7 @@ export async function applyPlanBundleTemplate(
       .from(exercises)
       .where(eq(exercises.tenantId, tenantId));
 
-    const exerciseMapBySlug: Record<string, string> = {};
-    for (const ex of catalog) {
-      if (ex.slug) exerciseMapBySlug[ex.slug] = ex.id;
-    }
+    const exerciseMapBySlug = buildExerciseMapBySlugWithOwnedPreference(catalog);
 
     const days = resolveTemplateDays(trainingStructure, exerciseMapBySlug);
     const trainingBlockSlugs = extractTrainingBlockSlugsFromTemplate(
@@ -147,10 +143,7 @@ export async function applyTrainingFromTemplateRow(
     .from(exercises)
     .where(eq(exercises.tenantId, tenantId));
 
-  const exerciseMapBySlug: Record<string, string> = {};
-  for (const ex of catalog) {
-    if (ex.slug) exerciseMapBySlug[ex.slug] = ex.id;
-  }
+  const exerciseMapBySlug = buildExerciseMapBySlugWithOwnedPreference(catalog);
 
   const days = resolveTemplateDays(structure, exerciseMapBySlug);
   const trainingBlockSlugs = extractTrainingBlockSlugsFromTemplate(

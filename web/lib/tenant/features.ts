@@ -4,12 +4,15 @@ export type TenantFeatures = {
   selfServiceSignup: boolean;
   quizEnabled: boolean;
   publicLoginEnabled: boolean;
+  /** YouTube channel ID for auto-tagging coach-owned exercise videos. */
+  ownedYoutubeChannelId?: string | null;
 };
 
 const DEFAULTS: TenantFeatures = {
   selfServiceSignup: true,
   quizEnabled: true,
   publicLoginEnabled: true,
+  ownedYoutubeChannelId: null,
 };
 
 export function parseTenantFeatures(
@@ -28,6 +31,10 @@ export function parseTenantFeatures(
       typeof f.publicLoginEnabled === "boolean"
         ? f.publicLoginEnabled
         : DEFAULTS.publicLoginEnabled,
+    ownedYoutubeChannelId:
+      typeof f.ownedYoutubeChannelId === "string"
+        ? f.ownedYoutubeChannelId
+        : null,
   };
 }
 

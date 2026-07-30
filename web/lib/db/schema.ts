@@ -104,6 +104,11 @@ export const nutritionTrackingModeEnum = pgEnum("nutrition_tracking_mode", [
 
 export const tenantStatusEnum = pgEnum("tenant_status", ["active", "suspended"]);
 
+export const exerciseVideoSourceEnum = pgEnum("exercise_video_source", [
+  "owned",
+  "third_party",
+]);
+
 export const tenants = pgTable("tenants", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
@@ -331,6 +336,23 @@ export const contentBlocks = pgTable("content_blocks", {
     .notNull(),
 });
 
+export const exerciseCategories = pgTable(
+  "exercise_categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [unique("exercise_categories_tenant_slug_uid").on(t.tenantId, t.slug)],
+);
+
 export const exercises = pgTable(
   "exercises",
   {
@@ -347,6 +369,10 @@ export const exercises = pgTable(
     defaultReps: text("default_reps"),
     defaultSets: integer("default_sets").default(3),
     notes: text("notes"),
+    categoryId: uuid("category_id").references(() => exerciseCategories.id),
+    videoSource: exerciseVideoSourceEnum("video_source")
+      .notNull()
+      .default("third_party"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -369,6 +395,7 @@ export const planTemplates = pgTable(
     description: text("description"),
     tagsJson: jsonb("tags_json").notNull().default([]),
     sourceMemberId: uuid("source_member_id").references(() => members.id),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -784,6 +811,7 @@ export type Member = typeof members.$inferSelect;
 export type Video = typeof videos.$inferSelect;
 export type CheckIn = typeof checkIns.$inferSelect;
 export type ContentBlock = typeof contentBlocks.$inferSelect;
+export type ExerciseCategory = typeof exerciseCategories.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type TrainingPlan = typeof trainingPlans.$inferSelect;
 export type NutritionPlan = typeof nutritionPlans.$inferSelect;

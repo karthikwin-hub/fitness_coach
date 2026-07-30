@@ -2,9 +2,45 @@
 
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getClientStorage, isFirebaseConfigured } from "@/lib/firebase/client";
+import {
+  audioExtensionFromMime,
+  buildCoachMediaStoragePath,
+  COACH_AUDIO_MAX_BYTES,
+  COACH_VIDEO_MAX_BYTES,
+  videoExtensionFromMime,
+} from "@/lib/firebase/media-upload-path";
 
-const COACH_AUDIO_MAX_BYTES = 5 * 1024 * 1024;
-const COACH_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+export type CoachUploadOptions = {
+  authHeaders?: Record<string, string>;
+  preferServer?: boolean;
+  kind?: "audio" | "video";
+};
+
+async function uploadViaCoachApi(
+  blob: Blob,
+  scopeKey: string,
+  authHeaders: Record<string, string>,
+  kind: "audio" | "video",
+): Promise<string | null> {
+  const form = new FormData();
+  form.append("file", blob, kind === "video" ? "upload.webm" : "upload.webm");
+  form.append("scope", scopeKey);
+  form.append("kind", kind);
+
+  const res = await fetch("/api/coach/media-upload", {
+    method: "POST",
+    headers: authHeaders,
+    body: form,
+  });
+
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? "Upload failed.");
+  }
+
+  const data = (await res.json()) as { url?: string };
+  return data.url ?? null;
+}
 
 async function uploadBlobToPath(
   blob: Blob,
@@ -12,14 +48,6 @@ async function uploadBlobToPath(
   devFallback: string,
 ): Promise<string | null> {
   if (!isFirebaseConfigured()) {
-    if (process.env.NODE_ENV === "development") {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(devFallback);
-        reader.readAsDataURL(blob);
-      });
-    }
     return null;
   }
 
@@ -31,32 +59,69 @@ async function uploadBlobToPath(
   return getDownloadURL(storageRef);
 }
 
-function audioExtension(blob: Blob): string {
-  if (blob.type.includes("mp4")) return "mp4";
-  if (blob.type.includes("mpeg")) return "mp3";
-  return "webm";
-}
+async function uploadCoachBlob(
+  blob: Blob,
+  scopeKey: string,
+  kind: "audio" | "video",
+  opts?: CoachUploadOptions,
+): Promise<string | null> {
+  const maxBytes = kind === "video" ? COACH_VIDEO_MAX_BYTES : COACH_AUDIO_MAX_BYTES;
+  if (blob.size > maxBytes) {
+    throw new Error(
+      kind === "video" ? "Video is too large (max 50 MB)." : "Voice note is too large (max 5 MB).",
+    );
+  }
 
-function videoExtension(blob: Blob): string {
-  if (blob.type.includes("mp4")) return "mp4";
-  if (blob.type.includes("quicktime")) return "mov";
-  return "webm";
+  const ext =
+    kind === "video"
+      ? videoExtensionFromMime(blob.type)
+      : audioExtensionFromMime(blob.type);
+  const path = buildCoachMediaStoragePath(scopeKey, ext);
+  const devFallback =
+    kind === "video"
+      ? `dev://video/${scopeKey}/${Date.now()}.${ext}`
+      : `dev://voice-note/${scopeKey}/${Date.now()}.${ext}`;
+
+  if (opts?.preferServer && opts.authHeaders && Object.keys(opts.authHeaders).length > 0) {
+    return uploadViaCoachApi(blob, scopeKey, opts.authHeaders, kind);
+  }
+
+  if (!isFirebaseConfigured()) {
+    if (process.env.NODE_ENV === "development") {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(devFallback);
+        reader.readAsDataURL(blob);
+      });
+    }
+    if (opts?.authHeaders && Object.keys(opts.authHeaders).length > 0) {
+      return uploadViaCoachApi(blob, scopeKey, opts.authHeaders, kind);
+    }
+    return null;
+  }
+
+  try {
+    const clientUrl = await uploadBlobToPath(blob, path, devFallback);
+    if (clientUrl) return clientUrl;
+  } catch {
+    /* fall through to server upload */
+  }
+
+  if (opts?.authHeaders && Object.keys(opts.authHeaders).length > 0) {
+    return uploadViaCoachApi(blob, scopeKey, opts.authHeaders, kind);
+  }
+
+  return null;
 }
 
 /** Upload a coach voice note blob for in-app playback. */
 export async function uploadCoachAudio(
   blob: Blob,
   scopeKey: string,
+  opts?: CoachUploadOptions,
 ): Promise<string | null> {
-  if (blob.size > COACH_AUDIO_MAX_BYTES) {
-    throw new Error("Voice note is too large (max 5 MB).");
-  }
-
-  const ext = audioExtension(blob);
-  const path = scopeKey.includes("/")
-    ? `${scopeKey}/${Date.now()}.${ext}`
-    : `voice-notes/${scopeKey}/${Date.now()}.${ext}`;
-  return uploadBlobToPath(blob, path, `dev://voice-note/${scopeKey}/${Date.now()}.${ext}`);
+  return uploadCoachBlob(blob, scopeKey, "audio", opts);
 }
 
 /** Upload meal photo from member check-in. */
@@ -89,14 +154,7 @@ export async function uploadMealPhoto(
 export async function uploadCoachVideo(
   blob: Blob,
   scopeKey: string,
+  opts?: CoachUploadOptions,
 ): Promise<string | null> {
-  if (blob.size > COACH_VIDEO_MAX_BYTES) {
-    throw new Error("Video is too large (max 50 MB).");
-  }
-
-  const ext = videoExtension(blob);
-  const path = scopeKey.includes("/")
-    ? `${scopeKey}/${Date.now()}.${ext}`
-    : `broadcasts/${scopeKey}/${Date.now()}.${ext}`;
-  return uploadBlobToPath(blob, path, `dev://video/${scopeKey}/${Date.now()}.${ext}`);
+  return uploadCoachBlob(blob, scopeKey, "video", opts);
 }

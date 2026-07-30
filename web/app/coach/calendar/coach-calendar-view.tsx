@@ -8,6 +8,7 @@ import {
   addDays,
   formatDayLabel,
   formatTimeLabel,
+  layoutOverlappingEvents,
   SLOT_MINUTES,
   startOfWeek,
   toDateTimeLocal,
@@ -98,8 +99,12 @@ function eventGeometry(startsAt: string, endsAt: string) {
     end.getHours() + end.getMinutes() / 60 || DAY_END_HOUR,
   );
   const top = (startHour - DAY_START_HOUR) * HOUR_PX;
-  const height = Math.max((endHour - startHour) * HOUR_PX, 22);
+  const height = Math.max((endHour - startHour) * HOUR_PX, 28);
   return { top, height };
+}
+
+function appointmentLabel(appt: Appointment): string {
+  return appt.title?.trim() || appt.memberName;
 }
 
 function localDateKey(date: Date): string {
@@ -457,13 +462,27 @@ export function CoachCalendarView() {
                       );
                     })}
 
-                  {activeAppointments
-                    .filter(
+                  {(() => {
+                    const dayAppointments = activeAppointments.filter(
                       (a) =>
                         dayIndexInWeek(new Date(a.startsAt), weekStart) === dayIdx,
-                    )
-                    .map((a) => {
+                    );
+                    const uniqueAppointments = [
+                      ...new Map(dayAppointments.map((a) => [a.id, a])).values(),
+                    ];
+                    const layouts = layoutOverlappingEvents(uniqueAppointments);
+                    const layoutById = new Map(layouts.map((l) => [l.id, l]));
+
+                    return uniqueAppointments.map((a) => {
                       const g = eventGeometry(a.startsAt, a.endsAt);
+                      const layout = layoutById.get(a.id) ?? {
+                        column: 0,
+                        columnCount: 1,
+                      };
+                      const widthPct = 100 / layout.columnCount;
+                      const leftPct = layout.column * widthPct;
+                      const showTime = g.height >= 36;
+
                       return (
                         <button
                           key={a.id}
@@ -472,22 +491,31 @@ export function CoachCalendarView() {
                             setError(null);
                             setModal({ type: "edit", appt: a });
                           }}
-                          style={{ top: g.top, height: g.height }}
-                          className={`absolute inset-x-0.5 z-20 overflow-hidden rounded-md border px-1 text-left text-[10px] ${
+                          style={{
+                            top: g.top,
+                            height: g.height,
+                            left: `calc(${leftPct}% + 2px)`,
+                            width: `calc(${widthPct}% - 4px)`,
+                          }}
+                          title={`${appointmentLabel(a)} · ${formatTimeLabel(new Date(a.startsAt))}`}
+                          className={`absolute z-20 overflow-hidden rounded-md border px-1 py-0.5 text-left text-[10px] leading-tight ${
                             a.status === "completed"
                               ? "border-white/15 bg-white/10 text-white/60"
                               : "border-[var(--brand-diet)]/40 bg-[var(--brand-diet)]/25 text-white"
                           }`}
                         >
-                          <span className="block font-medium leading-tight">
-                            {a.memberName}
+                          <span className="block truncate font-medium">
+                            {appointmentLabel(a)}
                           </span>
-                          <span className="block text-white/60">
-                            {formatTimeLabel(new Date(a.startsAt))}
-                          </span>
+                          {showTime && (
+                            <span className="block truncate text-white/60">
+                              {formatTimeLabel(new Date(a.startsAt))}
+                            </span>
+                          )}
                         </button>
                       );
-                    })}
+                    });
+                  })()}
                 </div>
               ))}
             </div>

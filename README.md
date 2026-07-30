@@ -44,8 +44,11 @@ Firebase is optional for local work. Leave `NEXT_PUBLIC_FIREBASE_*` empty in `.e
 |---------|----------|
 | **Coach — Helna** | `/coach` command center |
 | **Member — Demo (Hetal plans)** | `/member` PWA with full plans |
+| **Member — Gautam / Sarah** | 9-month demo history (`gautam@abstrack.com`, `sarah@abstrack.com`) |
 | **Member — Hetal / Avinash / Shruti** | Pilot client accounts |
 | **Member — New (no plans)** | Empty dashboard (onboarding test) |
+
+With **`DEMO_LOGIN_ENABLED=1`**, sign in at `/login` with any seeded member email (e.g. `sarah@abstrack.com`) — no Google required, same pattern as demo coach.
 
 Use **Switch persona** in the dev banner or `/login?switch=1` to change accounts without restarting.
 
@@ -99,7 +102,7 @@ Optional dual-domain env: `COACHING_HOSTS`, `VAULT_HOSTS`, `COACHING_PUBLIC_URL`
 
 | Path | Description |
 |------|-------------|
-| `/member` | Dashboard — streak, compliance, program phase strip, optional coach note, today's workout |
+| `/member` | Dashboard — compact profile/stats summary, coach broadcast, **check-in feedback** (text + voice), paginated history |
 | `/member/progress` | **My program progress** — 3-month windows, plans, check-ins, deliveries |
 | `/member/check-in` | Weight, sleep, energy, soreness, meal photo; optional add to food diary |
 | `/member/workouts` | Today's session; set completion persists across visits |
@@ -113,19 +116,20 @@ Persistent **top navigation** on every coach screen: Command center, Members, Ca
 
 | Path | Description |
 |------|-------------|
-| `/coach` | Command center — check-in queue, sparklines, trend alerts, AI review, recipe drawer |
-| `/coach/calendar` | Weekly client calendar — drag-select appointments; block times, days, weeks, or recurring weekdays |
+| `/coach` | Command center — check-in queue, **voice/video feedback**, coach broadcast panel, AI review |
+| `/coach/calendar` | Weekly client calendar — drag-select appointments; **side-by-side layout** when slots overlap |
 | `/coach/settings` | Brand accents, meeting defaults, Google Calendar connection, **download how-to PDF** (coach only) |
 | `/coach/members` | Roster by status; **Progress** tab for all clients; at-risk badges |
 | `/coach/members/[id]` | Full profile, program phases, food diary summary, check-in history, messages |
 | `/coach/members/[id]/journey` | Program journey — 3-month windows, plans, deliveries, check-ins |
-| `/coach/plans` | Plan delivery — client list (tabs: Clients, Content blocks, Exercise catalog, **Vault programs**, Pilot metrics) |
+| `/coach/plans` | Plan delivery — client list (tabs: Clients, Content blocks, **Exercise catalog**, Plan templates, Vault programs, Pilot metrics) |
 | `/coach/plans/[id]` | Client plan hub — shows client name; publish, **Prepare delivery**, email / WhatsApp / link |
 | `/coach/plans/[id]/training` | Training builder — gym/home templates, edit, Save & publish |
 | `/coach/plans/[id]/nutrition` | Nutrition builder — macros, blocks, Save & publish |
 | `/coach/pilot` | Helna pilot metrics (<5 min publish target) |
 | `/coach/content-blocks` | Reusable content library (Abs-Track diary primary; MFP optional) |
-| `/coach/exercises` | Exercise catalog — expand, edit, delete |
+| `/coach/exercises` | Exercise catalog — **collapsible categories**, YouTube/owned video source badges |
+| `/coach/plan-templates` | Reusable plan templates — create, archive, duplicate, apply to clients |
 | `/coach/vault` | Vault programs — catalog pricing, publish, storefront copy |
 
 ### Public & platform
@@ -143,7 +147,9 @@ Persistent **top navigation** on every coach screen: Command center, Members, Ca
 - **Rules-based alerts:** sleep decline, missed check-ins, low protein → “Needs attention” on queue and member list
 - **Recipe quick-fix drawer:** filterable high-protein recipes from content blocks; append suggestion to coach note
 - **Inline food diary:** today's macro totals while reviewing a check-in
-- **Approve animation:** Framer Motion on coach routes only (not bundled on member PWA)
+- **Voice notes on check-ins:** record or upload audio; auto-upload on Save/Approve; plays on member dashboard
+- **Coach broadcast:** optional tenant-wide note (text, audio, video) with expiry — separate from per-check-in feedback
+- **Approve flow:** success banner, auto-advance queue, check-in date shown in review panel
 
 ### Brand & voice
 
@@ -155,8 +161,10 @@ Persistent **top navigation** on every coach screen: Command center, Members, Ca
 ### Member experience
 
 - **Native food diary:** search, manual entry, barcode stub, meal photo analysis; running macro totals
-- **Program phase strip:** coach-defined phases tied to program start/end dates
-- **Optional coach note:** pinned on dashboard when Helna posts one (no empty placeholder when absent)
+- **Compact dashboard:** profile, streak, steps, and new-plan links in a small top summary; coach messages below
+- **Check-in feedback:** highlighted latest feedback card + voice player; previous feedback paginated (3 visible, then 5 per page)
+- **Program phase strip:** coach-defined phases tied to program start/end dates (expandable in dashboard details)
+- **Optional coach broadcast:** pinned note from Helna when active (distinct from check-in feedback)
 - **Streak toasts:** CSS-only celebration at 7/30 days
 - **Appointments:** choose one or more consecutive 30-minute slots; receive email + ICS, location or join link, and an Add to Google Calendar link
 
@@ -166,6 +174,7 @@ Persistent **top navigation** on every coach screen: Command center, Members, Ca
 - Coaches can block one-off time, an entire day/week, or recurring weekdays such as every Sunday.
 - Meeting options: in person (location), Google Meet, Zoom link, WhatsApp link, or no location.
 - Optional coach Google Calendar OAuth mirrors appointments and blocked time. Connect the same Google calendar to Cal.com so prospect bookings respect in-app busy time.
+- **Overlapping appointments** render side-by-side columns so labels stay readable.
 - Google Meet links are created automatically when Google Calendar is connected; Zoom and WhatsApp use coach-configured links.
 
 Google sync env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and `CALENDAR_TOKEN_ENCRYPTION_KEY`. Configure the redirect URI in Google Cloud and then connect under Coach Settings.
@@ -187,7 +196,9 @@ Env (optional): `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL`. Without Resend, 
 
 ### Templates & content defaults
 
-- New tenants (and re-seed) install a shared **exercise catalog** (slug-keyed) and **gym/home** training templates via `installTenantPlanDefaults`.
+- **Plan templates:** coach CRUD at `/coach/plan-templates` — save from client plans, apply to new clients, bulk archive/restore
+- **Built-in bundles:** Gym 4-day split, Home circuit week, nutrition program template (installed on seed)
+- New tenants (and re-seed) install a shared **exercise catalog** with **categories** and optional **owned YouTube** video preference via `installTenantPlanDefaults`.
 - Content blocks skip the shared “Hetal Focus” health list — health notes are built per member at delivery time.
 - Offline sample PDFs: `cd web && npm run plans:pdf` → `docs/plan-samples/`.
 
@@ -242,8 +253,8 @@ npm run test:e2e      # Playwright — builds + serves on :3011
 
 | Suite | Location | Notes |
 |-------|----------|-------|
-| Unit | `web/lib/**/*.test.ts` | Brand, trends, plan delivery tokens/vars, PDF packs + how-to guide, appointments slots, nutrition, quiz, **vault catalog marketing + pricing** |
-| API | `web/tests/api/integration.test.ts` | Leads, members, check-ins, plan-deliveries, messages, **vault catalog + waitlist** (requires Postgres) |
+| Unit | `web/lib/**/*.test.ts` | Brand, trends, plan delivery, PDF, appointments slots + overlap layout, templates, voice upload paths, vault catalog |
+| API | `web/tests/api/integration.test.ts` | Leads, members, check-ins + dashboard feedback, plan-deliveries, plan-templates bulk, media-upload (requires Postgres) |
 | E2E | `web/tests/e2e/*.spec.ts` | Prospect, member, coach, auth flows |
 
 **Without Docker:** unit tests only:
@@ -300,19 +311,33 @@ deploy\deploy-app.ps1 `
   -EnvFile web\.env.production.local
 ```
 
-After schema changes (appointments, calendar blocks, **vault products**, **vault catalog settings**, `plan_deliveries`, exercise `slug`, template `key`, etc.), apply SQL migrations on the server **before** redeploying app code that depends on new tables/columns:
+After schema changes, apply SQL migrations on the server **before** redeploying app code that depends on new tables/columns:
 
 ```powershell
-deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-vault-products.sql
-deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-vault-catalog-settings.sql
-deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-appointments.sql
-deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SqlFile deploy\sql\2026-07-26-calendar-ux-sync.sql
+$Remote = "ubuntu@129.154.47.155"
+$Key = "$env:USERPROFILE\.ssh\oracle-fitness-coach"
+
+# Coach workflow (invited members, import keys, voice notes, plan templates)
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-29-coach-workflow-enhancements.sql
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-29-coach-broadcast-expiry-video.sql
+
+# Plan templates archive + exercise video library
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-30-plan-template-archive.sql
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-30-exercise-video-library.sql
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-30-drizzle-unique-constraints.sql
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-31-exercise-categories-drizzle-unique.sql
+
+# Earlier migrations (if not yet applied)
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-26-vault-products.sql
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-26-vault-catalog-settings.sql
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-26-appointments.sql
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SqlFile deploy\sql\2026-07-26-calendar-ux-sync.sql
 ```
 
 After vault migrations, re-seed demo programs on the VM:
 
 ```powershell
-deploy\migrate-db.ps1 -Remote ubuntu@129.154.47.155 -KeyPath $env:USERPROFILE\.ssh\oracle-fitness-coach -SeedOnly
+deploy\migrate-db.ps1 -Remote $Remote -KeyPath $Key -SeedOnly
 ```
 
 Or run `npm run db:push` on the server (or via `deploy/migrate-db.ps1` without `-SqlFile`).

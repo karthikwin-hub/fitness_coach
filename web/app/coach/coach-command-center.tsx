@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuthHeaders, useAuthReady, authFetch } from "@/lib/api/client";
 import { CoachPageShell } from "@/components/coach/coach-page-shell";
 import { CoachBroadcastPanel } from "@/components/coach/coach-broadcast-panel";
 import { CheckInHistoryList } from "@/components/coach/check-in-history-list";
-import { VoiceNoteRecorder } from "@/components/coach/voice-note-recorder";
+import {
+  VoiceNoteRecorder,
+  type VoiceNoteRecorderHandle,
+} from "@/components/coach/voice-note-recorder";
 import { ApproveButton } from "@/components/coach/approve-button";
 import { RecipeSwapDrawer } from "@/components/coach/recipe-swap-drawer";
 import { MemberDiarySummary } from "@/components/coach/member-diary-summary";
@@ -88,16 +91,19 @@ export function CoachCommandCenter() {
   const [memberOptions, setMemberOptions] = useState<Array<[string, string]>>([]);
   const [savingNote, setSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [actionBanner, setActionBanner] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [recipeOpen, setRecipeOpen] = useState(false);
+  const voiceRecorderRef = useRef<VoiceNoteRecorderHandle>(null);
 
-  const loadCheckIns = useCallback(async () => {
+  const loadCheckIns = useCallback(async (): Promise<CheckIn[] | null> => {
     const url = memberFilter
       ? `/api/check-ins?memberId=${memberFilter}`
       : "/api/check-ins";
     try {
       const headers = await getHeaders();
-      if (!headers.Authorization) return;
+      if (!headers.Authorization) return null;
 
       const res = await authFetch(url, {}, getHeaders);
       if (!res.ok) {
@@ -107,25 +113,32 @@ export function CoachCommandCenter() {
         } else {
           setLoadError(data.error ?? coachCopy.loadError);
         }
-        return;
+        return null;
       }
       const payload: CheckInsResponse = await res.json();
       const items = payload.items ?? [];
       setTrendsByMember(payload.trendsByMember ?? {});
       setLoadError(null);
       setCheckIns(items);
-      setSelectedId((prev) => {
-        if (prev && items.some((c) => c.id === prev)) return prev;
-        return items[0]?.id ?? null;
-      });
+      return items;
     } catch {
       setLoadError("Could not reach the server. Try refreshing or restart start-local.bat.");
+      return null;
     }
   }, [getHeaders, memberFilter]);
 
   useEffect(() => {
     if (!authReady) return;
-    loadCheckIns();
+    void loadCheckIns().then((items) => {
+      if (!items) return;
+      setSelectedId((prev) => {
+        if (prev && items.some((c) => c.id === prev)) return prev;
+        const nextPending = items.find(
+          (c) => c.status === "pending" || c.status === "flagged",
+        );
+        return nextPending?.id ?? items[0]?.id ?? null;
+      });
+    });
   }, [authReady, loadCheckIns]);
 
   useEffect(() => {
@@ -168,6 +181,7 @@ export function CoachCommandCenter() {
         : null,
     );
     setNoteSaved(false);
+    setSaveError(null);
   }, [
     selected?.id,
     selected?.coachNote,
@@ -180,6 +194,15 @@ export function CoachCommandCenter() {
     ? coachCopy.queueTitleHistory(checkIns.length)
     : coachCopy.queueTitlePending(pending.length);
 
+  async function resolveVoiceForSave() {
+    const finalized = await voiceRecorderRef.current?.finalizeForSave();
+    if (finalized) {
+      setVoiceNote(finalized);
+      return finalized;
+    }
+    return voiceNote;
+  }
+
   async function patchCheckIn(body: {
     status?: string;
     coachNote?: string | null;
@@ -187,39 +210,84 @@ export function CoachCommandCenter() {
     coachVoiceNoteDurationSec?: number | null;
   }) {
     if (!selected) return null;
-    const updated: CheckIn = await authFetch(`/api/check-ins/${selected.id}`, {
+    const res = await authFetch(`/api/check-ins/${selected.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }, getHeaders).then((r) => r.json());
+    }, getHeaders);
+    const updated = (await res.json()) as CheckIn & { error?: string };
+    if (!res.ok) {
+      setSaveError(updated.error ?? "Could not save check-in feedback.");
+      return null;
+    }
+    setSaveError(null);
     setCheckIns((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    setSelectedId(updated.id);
-    await loadCheckIns();
-    return updated;
+    const items = await loadCheckIns();
+    return items ? { updated, items } : { updated, items: [] as CheckIn[] };
+  }
+
+  function selectNextPending(
+    items: CheckIn[],
+    afterId: string,
+  ): string | null {
+    const next = items.find(
+      (c) =>
+        c.id !== afterId &&
+        (c.status === "pending" || c.status === "flagged"),
+    );
+    return next?.id ?? null;
   }
 
   async function saveNote() {
     if (!selected) return;
     setSavingNote(true);
-    await patchCheckIn({
+    setSaveError(null);
+    setActionBanner(null);
+    const voice = await resolveVoiceForSave();
+    const result = await patchCheckIn({
       coachNote: coachNoteDraft || null,
-      coachVoiceNoteUrl: voiceNote?.url ?? null,
-      coachVoiceNoteDurationSec: voiceNote?.durationSec ?? null,
+      coachVoiceNoteUrl: voice?.url ?? null,
+      coachVoiceNoteDurationSec: voice?.durationSec ?? null,
     });
     setSavingNote(false);
-    setNoteSaved(true);
+    if (result) setNoteSaved(true);
   }
 
   async function review(status: "approved" | "flagged") {
     if (!selected) return;
-    await patchCheckIn({
+    const memberName = selected.memberDisplayName ?? selected.memberEmail;
+    const reviewedId = selected.id;
+    setSaveError(null);
+    setActionBanner(null);
+    const voice = await resolveVoiceForSave();
+    const result = await patchCheckIn({
       status,
       coachNote: coachNoteDraft || null,
-      coachVoiceNoteUrl: voiceNote?.url ?? null,
-      coachVoiceNoteDurationSec: voiceNote?.durationSec ?? null,
+      coachVoiceNoteUrl: voice?.url ?? null,
+      coachVoiceNoteDurationSec: voice?.durationSec ?? null,
     });
-    setNoteSaved(true);
+    if (!result) return;
+
+    if (status === "approved") {
+      setActionBanner(coachCopy.checkInApproved(memberName));
+      const nextId = selectNextPending(result.items, reviewedId);
+      setSelectedId(nextId);
+      if (!nextId) {
+        setActionBanner(
+          memberFilter
+            ? coachCopy.memberCheckInsCaughtUp(memberName)
+            : coachCopy.queueAllCaughtUp,
+        );
+      }
+    } else {
+      setActionBanner(coachCopy.checkInFlagged(memberName));
+    }
+    setNoteSaved(false);
   }
+
+  const isApproved = selected?.status === "approved";
+  const isFlagged = selected?.status === "flagged";
+  const feedbackLocked = isApproved;
 
   const displayList = memberFilter
     ? checkIns
@@ -230,6 +298,11 @@ export function CoachCommandCenter() {
   const emptyMessage = memberFilter
     ? coachCopy.queueEmptyFiltered
     : coachCopy.queueEmpty;
+
+  function handleSelectCheckIn(id: string) {
+    setSelectedId(id);
+    setActionBanner(null);
+  }
 
   return (
     <CoachPageShell
@@ -267,7 +340,7 @@ export function CoachCommandCenter() {
             <CheckInHistoryList
               items={displayList}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={handleSelectCheckIn}
               showMemberName={!memberFilter}
               emptyMessage={emptyMessage}
               trendsByMember={trendsByMember}
@@ -284,26 +357,49 @@ export function CoachCommandCenter() {
         </section>
 
         <section className="rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4 lg:col-span-2">
+          {actionBanner && (
+            <p className="mb-4 rounded-lg border border-[var(--brand-diet)]/40 bg-[var(--brand-diet)]/15 px-3 py-2 text-sm text-[var(--brand-diet)]">
+              {actionBanner}
+            </p>
+          )}
           <h2 className="font-heading text-sm">AI review</h2>
           {selected ? (
             <>
-              <p className="mt-1 text-xs text-white/40">
-                {selected.memberDisplayName ?? selected.memberEmail}
-                {" · "}
-                <Link
-                  href={`/coach/members/${selected.memberId}`}
-                  className="text-[var(--brand-workout)] underline"
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <p className="text-xs text-white/40">
+                  {selected.memberDisplayName ?? selected.memberEmail}
+                  {" · "}
+                  {new Date(selected.createdAt).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                  {" · "}
+                  <Link
+                    href={`/coach/members/${selected.memberId}`}
+                    className="text-[var(--brand-workout)] underline"
+                  >
+                    Profile
+                  </Link>
+                  {" · "}
+                  <Link
+                    href={`/coach?memberId=${selected.memberId}`}
+                    className="text-[var(--brand-workout)] underline"
+                  >
+                    Full history
+                  </Link>
+                </p>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                    isApproved
+                      ? "bg-[var(--brand-diet)]/20 text-[var(--brand-diet)]"
+                      : isFlagged
+                        ? "bg-red-500/20 text-red-300"
+                        : "bg-amber-500/20 text-amber-200"
+                  }`}
                 >
-                  Profile
-                </Link>
-                {" · "}
-                <Link
-                  href={`/coach?memberId=${selected.memberId}`}
-                  className="text-[var(--brand-workout)] underline"
-                >
-                  Full history
-                </Link>
-              </p>
+                  {selected.status}
+                </span>
+              </div>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <MealPhotoPanel url={selected.mealPhotoUrl} />
                 <div className="rounded-lg border border-white/10 p-4 text-sm text-white/70">
@@ -327,6 +423,11 @@ export function CoachCommandCenter() {
               </div>
 
               <div className="mt-6">
+                {feedbackLocked && (
+                  <p className="mb-2 text-xs text-[var(--brand-diet)]">
+                    {coachCopy.checkInAlreadyApproved}
+                  </p>
+                )}
                 <label className="text-xs text-white/50">Coach note to member</label>
                 <textarea
                   value={coachNoteDraft}
@@ -335,11 +436,14 @@ export function CoachCommandCenter() {
                     setNoteSaved(false);
                   }}
                   rows={3}
+                  readOnly={feedbackLocked}
                   placeholder="Feedback visible on the member dashboard after you save…"
-                  className="mt-2 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+                  className="mt-2 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm disabled:opacity-80"
                 />
                 <div className="mt-3">
                   <VoiceNoteRecorder
+                    key={selected.id}
+                    ref={voiceRecorderRef}
                     memberId={selected.memberId}
                     attached={voiceNote}
                     onAttach={(url, durationSec) => {
@@ -350,49 +454,62 @@ export function CoachCommandCenter() {
                       setVoiceNote(null);
                       setNoteSaved(false);
                     }}
-                    disabled={savingNote}
+                    disabled={savingNote || feedbackLocked}
                     label="Voice feedback for member"
                   />
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={savingNote}
-                    onClick={saveNote}
-                    className="rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-50"
-                  >
-                    {savingNote ? "Saving…" : "Save note"}
-                  </button>
-                  {noteSaved && (
-                    <span className="text-xs text-[var(--brand-diet)]">{coachCopy.noteSaved}</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <ApproveButton onApprove={() => review("approved")} />
-                <button
-                  type="button"
-                  onClick={() => review("flagged")}
-                  className="tap-target rounded-xl border border-red-400/50 px-6 py-3 text-sm text-red-300"
-                >
-                  Flag for follow-up
-                </button>
-                {(selected.status === "flagged" ||
-                  (trendsByMember[selected.memberId]?.alerts.length ?? 0) > 0) && (
-                  <button
-                    type="button"
-                    onClick={() => setRecipeOpen(true)}
-                    className="tap-target rounded-xl border border-[var(--brand-diet)]/50 px-6 py-3 text-sm text-[var(--brand-diet)]"
-                  >
-                    Quick-fix recipes
-                  </button>
+                {!feedbackLocked && (
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={savingNote}
+                      onClick={saveNote}
+                      className="rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-50"
+                    >
+                      {savingNote ? "Saving…" : "Save draft"}
+                    </button>
+                    {noteSaved && (
+                      <span className="text-xs text-[var(--brand-diet)]">{coachCopy.noteSaved}</span>
+                    )}
+                    {saveError && (
+                      <span className="text-xs text-amber-300">{saveError}</span>
+                    )}
+                  </div>
                 )}
               </div>
+
+              {!feedbackLocked ? (
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <ApproveButton onApprove={() => review("approved")} />
+                  <button
+                    type="button"
+                    onClick={() => review("flagged")}
+                    className="tap-target rounded-xl border border-red-400/50 px-6 py-3 text-sm text-red-300"
+                  >
+                    Flag for follow-up
+                  </button>
+                  {(isFlagged ||
+                    (trendsByMember[selected.memberId]?.alerts.length ?? 0) > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => setRecipeOpen(true)}
+                      className="tap-target rounded-xl border border-[var(--brand-diet)]/50 px-6 py-3 text-sm text-[var(--brand-diet)]"
+                    >
+                      Quick-fix recipes
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-6 text-sm text-white/50">
+                  This check-in is complete. Pick another item from the queue, or filter by member to review history.
+                </p>
+              )}
               <p className="mt-3 text-xs text-white/40">{coachCopy.approveHint}</p>
             </>
           ) : (
-            <p className="mt-4 text-sm text-white/50">Select a check-in to review.</p>
+            <p className="mt-4 text-sm text-white/50">
+              {actionBanner ?? coachCopy.queueAllCaughtUp}
+            </p>
           )}
         </section>
       </div>

@@ -9,8 +9,16 @@ import { usePilotTimer } from "@/components/coach/use-pilot-timer";
 import { DragReorderList } from "@/components/coach/drag-reorder-list";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
 import { isWorkoutGuidelineCategory } from "@/lib/plans/content-blocks";
+import {
+  formatExerciseOptionLabel,
+  sortCatalogForPicker,
+} from "@/lib/plans/prefer-owned-exercise";
 
-type Exercise = { id: string; name: string };
+type Exercise = {
+  id: string;
+  name: string;
+  videoSource?: "owned" | "third_party" | null;
+};
 type ContentBlock = { id: string; title: string; category: string };
 type ExerciseRow = {
   id?: string;
@@ -83,7 +91,9 @@ export default function TrainingBuilderPage() {
   }
 
   useEffect(() => {
-    authFetch("/api/exercises", {}, getHeaders).then((r) => r.json()).then(setCatalog);
+    authFetch("/api/exercises", {}, getHeaders)
+      .then((r) => r.json())
+      .then((rows: Exercise[]) => setCatalog(sortCatalogForPicker(rows)));
     authFetch("/api/content-blocks", {}, getHeaders)
       .then((r) => r.json())
       .then((all: ContentBlock[]) =>
@@ -679,7 +689,9 @@ export default function TrainingBuilderPage() {
                             className="col-span-5 rounded border border-white/10 bg-black/20 px-1 py-1"
                           >
                             {catalog.map((c) => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
+                              <option key={c.id} value={c.id}>
+                                {formatExerciseOptionLabel(c)}
+                              </option>
                             ))}
                           </select>
                           <input

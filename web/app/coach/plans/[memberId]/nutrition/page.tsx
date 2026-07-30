@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { CoachClientPlanHeader } from "@/components/coach/coach-client-plan-header";
@@ -405,7 +406,12 @@ export default function NutritionBuilderPage() {
 
           <section>
             <h2 className="font-heading text-sm">Attached tip blocks</h2>
-            <p className="mt-1 text-xs text-white/40">Drag to reorder how blocks appear for the member.</p>
+            <p className="mt-1 text-xs text-white/40">
+              Drag to reorder how blocks appear for the member.{" "}
+              <Link href="/coach/content-blocks" className="text-[var(--brand-diet)] underline">
+                Manage reusable blocks →
+              </Link>
+            </p>
             {attachedBlocks.length === 0 ? (
               <p className="mt-2 text-sm text-white/40">No blocks attached yet.</p>
             ) : (

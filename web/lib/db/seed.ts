@@ -25,6 +25,8 @@ import { ensureJourneyDemoData } from "./seed-journey-demo";
 import { seedDemoMemberHistory, DEMO_HISTORY_IMPORT_KEYS } from "./demo-member-history";
 import { seedDemoPlanTemplates } from "./demo-plan-templates";
 import { seedVaultDemoCatalog, seedVaultCatalogMarketing } from "./seed-vault";
+import { NUTRITION_PROGRAM_TEMPLATE } from "../plans/built-in-templates";
+import { buildExerciseMapBySlugWithOwnedPreference } from "../plans/prefer-owned-exercise";
 import { ensureMemberCoachAssignments, getCanonicalCoachId } from "../members/canonical-coach";
 import {
   GYM_W1_STRUCTURE,
@@ -155,7 +157,7 @@ async function seed() {
 
   const tenantFeatures = {
     selfServiceSignup: false,
-    quizEnabled: false,
+    quizEnabled: true,
     publicLoginEnabled: true,
   };
 
@@ -280,10 +282,7 @@ async function seed() {
     .select()
     .from(exercises)
     .where(eq(exercises.tenantId, tenantId));
-  const exerciseMapBySlug: Record<string, string> = {};
-  for (const ex of allExercises) {
-    if (ex.slug) exerciseMapBySlug[ex.slug] = ex.id;
-  }
+  const exerciseMapBySlug = buildExerciseMapBySlugWithOwnedPreference(allExercises);
 
   const existingVideos = await db.select().from(videos).where(eq(videos.tenantId, tenantId)).limit(1);
   if (existingVideos.length === 0) {
@@ -291,7 +290,8 @@ async function seed() {
     console.log(`Inserted ${videoSeeds.length} videos.`);
   }
 
-  // Nutrition template stub (macros only) — separate from training structure templates
+  // Nutrition template — install-defaults refreshes on plan-templates load; seed ensures row exists
+  const nut = NUTRITION_PROGRAM_TEMPLATE;
   const existingNutritionTpl = await db
     .select()
     .from(planTemplates)
@@ -299,16 +299,11 @@ async function seed() {
   if (!existingNutritionTpl.some((t) => t.type === "nutrition_program")) {
     await db.insert(planTemplates).values({
       tenantId,
-      type: "nutrition_program",
-      key: "nutrition_program",
-      name: "Default Nutrition Macros",
-      structureJson: {
-        caloriesMin: 1350,
-        caloriesMax: 1450,
-        proteinMin: 60,
-        proteinMax: 90,
-        carbsMax: 150,
-      },
+      type: nut.type,
+      key: nut.key,
+      name: nut.name,
+      description: nut.description,
+      structureJson: nut.structure,
     });
   }
 

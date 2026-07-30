@@ -90,6 +90,8 @@ export type ExerciseImportRow = {
   defaultReps?: string;
   defaultSets?: number;
   notes?: string;
+  categorySlug?: string;
+  videoSource?: "owned" | "third_party";
 };
 
 export type ContentBlockImportRow = {

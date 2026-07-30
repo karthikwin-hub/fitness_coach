@@ -249,6 +249,50 @@ describe.skipIf(!hasDatabase())("API /api/check-ins", () => {
     const res = await postCheckIn(req);
     expect(res.status).toBe(400);
   });
+
+  it("surfaces coach check-in feedback on member dashboard", async () => {
+    const { PATCH: patchCheckIn } = await import("@/app/api/check-ins/[id]/route");
+    const { GET: getDashboard } = await import("@/app/api/members/me/dashboard/route");
+
+    const listReq = new NextRequest("http://localhost/api/check-ins", {
+      headers: COACH_AUTH,
+    });
+    const { GET: listCheckIns } = await import("@/app/api/check-ins/route");
+    const listRes = await listCheckIns(listReq);
+    const payload = await listRes.json();
+    const pending = (payload.items as Array<{ id: string; memberEmail: string; status: string }>).find(
+      (c) => c.status === "pending" && c.memberEmail === "demo.member@abstrack.com",
+    );
+    expect(pending).toBeTruthy();
+
+    const patchReq = new NextRequest(`http://localhost/api/check-ins/${pending!.id}`, {
+      method: "PATCH",
+      headers: { ...COACH_AUTH, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "approved",
+        coachNote: "Great consistency — keep protein at lunch.",
+        coachVoiceNoteUrl: "/demo/coach-voice-sample.mp3",
+        coachVoiceNoteDurationSec: 12,
+      }),
+    });
+    const patchRes = await patchCheckIn(patchReq, {
+      params: Promise.resolve({ id: pending!.id }),
+    });
+    expect(patchRes.status).toBe(200);
+
+    const dashReq = new NextRequest("http://localhost/api/members/me/dashboard", {
+      headers: MEMBER_AUTH,
+    });
+    const dashRes = await getDashboard(dashReq);
+    expect(dashRes.status).toBe(200);
+    const dash = await dashRes.json();
+    expect(dash.latestCheckInFeedback?.coachNote).toBe(
+      "Great consistency — keep protein at lunch.",
+    );
+    expect(dash.latestCheckInFeedback?.coachVoiceNoteUrl).toBe(
+      "/demo/coach-voice-sample.mp3",
+    );
+  });
 });
 
 describe.skipIf(!hasDatabase())("API /api/training-plans", () => {
@@ -319,7 +363,7 @@ describe.skipIf(!hasDatabase())("API /api/messages", () => {
     const listRes = await getMembers(listReq);
     const membersList = await listRes.json();
     const demo = membersList.find(
-      (m: { email: string }) => m.email === "member@abstrack.local",
+      (m: { email: string }) => m.email === "demo.member@abstrack.com",
     );
     expect(demo).toBeTruthy();
 
@@ -685,5 +729,114 @@ describe.skipIf(!hasDatabase())("API member program journey", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.window.index).toBe(0);
+  });
+});
+
+describe.skipIf(!hasDatabase())("API /api/coach/media-upload", () => {
+  it("uploads audio for coach via server route", async () => {
+    const { POST } = await import("@/app/api/coach/media-upload/route");
+    const form = new FormData();
+    form.append("scope", "broadcasts/00000000-0000-4000-8000-000000000001");
+    form.append("kind", "audio");
+    form.append("file", new File(["test-audio-bytes"], "note.webm", { type: "audio/webm" }));
+
+    const req = new NextRequest("http://localhost/api/coach/media-upload", {
+      method: "POST",
+      headers: COACH_AUTH,
+      body: form,
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.url).toBeTruthy();
+  });
+
+  it("uploads audio with bare member id scope (check-in voice notes)", async () => {
+    const { POST } = await import("@/app/api/coach/media-upload/route");
+    const form = new FormData();
+    form.append("scope", "550e8400-e29b-41d4-a716-446655440000");
+    form.append("kind", "audio");
+    form.append("file", new File(["test-audio-bytes"], "note.webm", { type: "audio/webm" }));
+
+    const req = new NextRequest("http://localhost/api/coach/media-upload", {
+      method: "POST",
+      headers: COACH_AUTH,
+      body: form,
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.url).toBeTruthy();
+  });
+
+  it("rejects invalid scope", async () => {
+    const { POST } = await import("@/app/api/coach/media-upload/route");
+    const form = new FormData();
+    form.append("scope", "invalid/path");
+    form.append("file", new File(["x"], "x.webm", { type: "audio/webm" }));
+
+    const req = new NextRequest("http://localhost/api/coach/media-upload", {
+      method: "POST",
+      headers: COACH_AUTH,
+      body: form,
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+});
+
+describe.skipIf(!hasDatabase())("API /api/plan-templates bulk", () => {
+  it("archives and restores a custom template", async () => {
+    const { GET: getTemplates, POST: createTemplate } = await import(
+      "@/app/api/plan-templates/route"
+    );
+    const { POST: bulk } = await import("@/app/api/plan-templates/bulk/route");
+
+    const key = `9${Date.now().toString().slice(-3)}`;
+    const createReq = new NextRequest("http://localhost/api/plan-templates", {
+      method: "POST",
+      headers: { ...COACH_AUTH, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Bulk test bundle",
+        key,
+        type: "plan_bundle",
+        structureJson: { version: 1, trainingBlockSlugs: [] },
+      }),
+    });
+    const createdRes = await createTemplate(createReq);
+    expect(createdRes.status).toBe(201);
+    const created = await createdRes.json();
+
+    const archiveReq = new NextRequest("http://localhost/api/plan-templates/bulk", {
+      method: "POST",
+      headers: { ...COACH_AUTH, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "archive", ids: [created.id] }),
+    });
+    expect((await bulk(archiveReq)).status).toBe(200);
+
+    const activeReq = new NextRequest("http://localhost/api/plan-templates", {
+      headers: COACH_AUTH,
+    });
+    const active = await getTemplates(activeReq).then((r) => r.json());
+    expect(active.some((t: { id: string }) => t.id === created.id)).toBe(false);
+
+    const restoreReq = new NextRequest("http://localhost/api/plan-templates/bulk", {
+      method: "POST",
+      headers: { ...COACH_AUTH, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "restore", ids: [created.id] }),
+    });
+    expect((await bulk(restoreReq)).status).toBe(200);
+
+    const { DELETE: deleteTemplate } = await import("@/app/api/plan-templates/[id]/route");
+    await deleteTemplate(
+      new NextRequest(`http://localhost/api/plan-templates/${created.id}`, {
+        method: "DELETE",
+        headers: COACH_AUTH,
+      }),
+      { params: Promise.resolve({ id: created.id }) },
+    );
   });
 });

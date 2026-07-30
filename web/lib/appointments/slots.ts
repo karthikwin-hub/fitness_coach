@@ -145,3 +145,92 @@ export function formatTimeLabel(date: Date): string {
     minute: "2-digit",
   });
 }
+
+export type OverlapLayoutInput = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+};
+
+export type OverlapLayout = {
+  id: string;
+  column: number;
+  columnCount: number;
+};
+
+/**
+ * Assigns side-by-side columns for overlapping calendar events so labels
+ * do not stack on top of each other.
+ */
+export function layoutOverlappingEvents(
+  events: OverlapLayoutInput[],
+): OverlapLayout[] {
+  if (events.length === 0) return [];
+
+  type Positioned = OverlapLayoutInput & { start: number; end: number };
+  const positioned: Positioned[] = events
+    .map((event) => ({
+      ...event,
+      start: new Date(event.startsAt).getTime(),
+      end: new Date(event.endsAt).getTime(),
+    }))
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const parent = positioned.map((_, index) => index);
+  function find(index: number): number {
+    let root = index;
+    while (parent[root] !== root) root = parent[root];
+    return root;
+  }
+  function union(a: number, b: number) {
+    parent[find(a)] = find(b);
+  }
+
+  for (let i = 0; i < positioned.length; i++) {
+    for (let j = i + 1; j < positioned.length; j++) {
+      if (positioned[i].start < positioned[j].end && positioned[j].start < positioned[i].end) {
+        union(i, j);
+      }
+    }
+  }
+
+  const clusters = new Map<number, Positioned[]>();
+  positioned.forEach((item, index) => {
+    const root = find(index);
+    const group = clusters.get(root) ?? [];
+    group.push(item);
+    clusters.set(root, group);
+  });
+
+  const layouts = new Map<string, OverlapLayout>();
+
+  for (const cluster of clusters.values()) {
+    const columnEnds: number[] = [];
+    const assignments: Array<{ id: string; column: number }> = [];
+
+    for (const item of cluster.sort((a, b) => a.start - b.start || a.end - b.end)) {
+      let column = columnEnds.findIndex((end) => end <= item.start);
+      if (column === -1) {
+        column = columnEnds.length;
+        columnEnds.push(item.end);
+      } else {
+        columnEnds[column] = item.end;
+      }
+      assignments.push({ id: item.id, column });
+    }
+
+    const columnCount = Math.max(1, columnEnds.length);
+    for (const assignment of assignments) {
+      layouts.set(assignment.id, {
+        id: assignment.id,
+        column: assignment.column,
+        columnCount,
+      });
+    }
+  }
+
+  return events.map(
+    (event) =>
+      layouts.get(event.id) ?? { id: event.id, column: 0, columnCount: 1 },
+  );
+}

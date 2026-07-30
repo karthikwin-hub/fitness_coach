@@ -5,8 +5,17 @@ ALTER TYPE member_status ADD VALUE IF NOT EXISTS 'invited';
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS features_json jsonb NOT NULL DEFAULT '{}';
 
 ALTER TABLE members ADD COLUMN IF NOT EXISTS import_key text;
-CREATE UNIQUE INDEX IF NOT EXISTS members_tenant_import_key_uid
-  ON members (tenant_id, import_key) WHERE import_key IS NOT NULL;
+-- Drizzle expects a named unique constraint (not a partial index).
+DROP INDEX IF EXISTS members_tenant_import_key_uid;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'members_tenant_import_key_uid'
+  ) THEN
+    ALTER TABLE members
+      ADD CONSTRAINT members_tenant_import_key_uid UNIQUE (tenant_id, import_key);
+  END IF;
+END $$;
 
 ALTER TABLE plan_templates ADD COLUMN IF NOT EXISTS description text;
 ALTER TABLE plan_templates ADD COLUMN IF NOT EXISTS tags_json jsonb NOT NULL DEFAULT '[]';

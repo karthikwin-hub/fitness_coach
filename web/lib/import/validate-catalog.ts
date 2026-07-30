@@ -5,6 +5,7 @@ import {
   exercises,
   planTemplates,
 } from "@/lib/db/schema";
+import { DEFAULT_EXERCISE_CATEGORIES } from "@/lib/plans/exercise-categories";
 import { normalizeYoutubeVideoId } from "@/lib/youtube/parse-video-id";
 import type {
   ImportSummary,
@@ -84,6 +85,8 @@ export async function validateCatalogWorkbook(
     }
   }
 
+  const categorySlugs = new Set(DEFAULT_EXERCISE_CATEGORIES.map((c) => c.slug));
+
   const slugSeen = new Map<string, number>();
   for (const row of workbook.exercises) {
     if (!row.slug) {
@@ -103,6 +106,20 @@ export async function validateCatalogWorkbook(
           row.row,
           "Invalid YouTube URL or video ID",
           "youtube_video_id_or_url",
+        ),
+      );
+    }
+    if (row.videoSource && row.videoSource !== "owned" && row.videoSource !== "third_party") {
+      issues.push(issue("Exercises", row.row, "video_source must be owned or third_party", "video_source"));
+    }
+    if (row.categorySlug && !categorySlugs.has(row.categorySlug.toLowerCase())) {
+      issues.push(
+        issue(
+          "Exercises",
+          row.row,
+          `Unknown category_slug: ${row.categorySlug}`,
+          "category_slug",
+          "warning",
         ),
       );
     }

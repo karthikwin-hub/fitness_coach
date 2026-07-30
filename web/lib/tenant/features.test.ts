@@ -7,6 +7,7 @@ describe("parseTenantFeatures", () => {
       selfServiceSignup: true,
       quizEnabled: true,
       publicLoginEnabled: true,
+      ownedYoutubeChannelId: null,
     });
   });
 
@@ -16,11 +17,13 @@ describe("parseTenantFeatures", () => {
         selfServiceSignup: false,
         quizEnabled: false,
         publicLoginEnabled: true,
+        ownedYoutubeChannelId: "UCcoach123",
       }),
     ).toEqual({
       selfServiceSignup: false,
       quizEnabled: false,
       publicLoginEnabled: true,
+      ownedYoutubeChannelId: "UCcoach123",
     });
   });
 });

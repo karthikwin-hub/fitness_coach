@@ -76,6 +76,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       description: body.description ?? existing.description,
       tagsJson: body.tags ?? existing.tagsJson,
       structureJson,
+      archivedAt:
+        body.archived === true
+          ? new Date()
+          : body.archived === false
+            ? null
+            : existing.archivedAt,
       updatedAt: new Date(),
     })
     .where(and(eq(planTemplates.id, id), eq(planTemplates.tenantId, user.tenantId)))

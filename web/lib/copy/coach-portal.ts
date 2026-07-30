@@ -7,7 +7,15 @@ export const coachCopy = {
   queueEmptyFiltered: "No check-ins for this member yet.",
   queueTitlePending: (n: number) => `Check-ins needing review (${n})`,
   queueTitleHistory: (n: number) => `Check-in history (${n})`,
-  noteSaved: "Saved — member can see this",
+  noteSaved: "Draft saved — member can see this on their dashboard",
+  checkInApproved: (name: string) =>
+    `Approved — feedback sent to ${name}. Select the next check-in or you're all caught up.`,
+  checkInFlagged: (name: string) =>
+    `Flagged — ${name} stays in your review queue for follow-up.`,
+  checkInAlreadyApproved: "Approved — feedback is on the member dashboard.",
+  queueAllCaughtUp: "All caught up — no check-ins need review right now.",
+  memberCheckInsCaughtUp: (name: string) =>
+    `All caught up for ${name} — no pending check-ins left.`,
   approveHint:
     "Flagged items stay in the review queue; approved items drop off the queue but remain in history.",
   loadError: "Could not load check-ins. Refresh the page or sign in again.",

@@ -2,7 +2,9 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { contentBlocks, exercises, planTemplates } from "@/lib/db/schema";
 import { contentBlockSeeds } from "@/lib/db/content-block-seeds";
+import { NUTRITION_PROGRAM_TEMPLATE } from "@/lib/plans/built-in-templates";
 import { EXERCISE_CATALOG } from "@/lib/plans/exercise-catalog";
+import { installExerciseCategoryDefaults } from "@/lib/plans/exercise-categories";
 import {
   GYM_W1_TEMPLATE,
   HOME_W21_TEMPLATE,
@@ -14,6 +16,8 @@ import {
  * for a tenant. Idempotent — skips rows that already exist by slug/key.
  */
 export async function installTenantPlanDefaults(tenantId: string) {
+  const categoryIds = await installExerciseCategoryDefaults(tenantId);
+
   // Exercises by slug
   const existingExercises = await db
     .select({ slug: exercises.slug, name: exercises.name })
@@ -25,6 +29,16 @@ export async function installTenantPlanDefaults(tenantId: string) {
   const existingNames = new Set(existingExercises.map((e) => e.name));
 
   for (const seed of EXERCISE_CATALOG) {
+    const categorySlug =
+      seed.muscleGroup === "legs"
+        ? "legs"
+        : seed.muscleGroup === "back"
+          ? "back"
+          : seed.muscleGroup === "shoulders"
+            ? "shoulders"
+            : "uncategorized";
+    const categoryId = categoryIds.get(categorySlug) ?? categoryIds.get("uncategorized");
+
     if (existingSlugs.has(seed.slug)) continue;
 
     // Backfill slug onto legacy name-matched rows
@@ -38,6 +52,7 @@ export async function installTenantPlanDefaults(tenantId: string) {
           equipment: seed.equipment,
           defaultReps: seed.defaultReps,
           defaultSets: seed.defaultSets,
+          categoryId,
         })
         .where(
           and(
@@ -59,6 +74,8 @@ export async function installTenantPlanDefaults(tenantId: string) {
       equipment: seed.equipment,
       defaultReps: seed.defaultReps,
       defaultSets: seed.defaultSets,
+      categoryId,
+      videoSource: "third_party",
     });
     existingSlugs.add(seed.slug);
   }
@@ -121,6 +138,68 @@ export async function installTenantPlanDefaults(tenantId: string) {
     });
   }
 
+  const nut = NUTRITION_PROGRAM_TEMPLATE;
+  if (existingKeys.has(nut.key)) {
+    await db
+      .update(planTemplates)
+      .set({
+        name: nut.name,
+        description: nut.description,
+        structureJson: nut.structure,
+      })
+      .where(
+        and(
+          eq(planTemplates.tenantId, tenantId),
+          eq(planTemplates.key, nut.key),
+        ),
+      );
+  } else {
+    const legacyNutrition = existingTemplates.find(
+      (t) => t.type === "nutrition_program" && !t.key,
+    );
+    if (legacyNutrition) {
+      await db
+        .update(planTemplates)
+        .set({
+          key: nut.key,
+          name: nut.name,
+          description: nut.description,
+          structureJson: nut.structure,
+        })
+        .where(
+          and(
+            eq(planTemplates.tenantId, tenantId),
+            eq(planTemplates.type, "nutrition_program"),
+            isNull(planTemplates.key),
+          ),
+        );
+    } else if (!existingTemplates.some((t) => t.type === "nutrition_program")) {
+      await db.insert(planTemplates).values({
+        tenantId,
+        type: nut.type,
+        key: nut.key,
+        name: nut.name,
+        description: nut.description,
+        structureJson: nut.structure,
+      });
+    } else {
+      await db
+        .update(planTemplates)
+        .set({
+          key: nut.key,
+          name: nut.name,
+          description: nut.description,
+          structureJson: nut.structure,
+        })
+        .where(
+          and(
+            eq(planTemplates.tenantId, tenantId),
+            eq(planTemplates.type, "nutrition_program"),
+          ),
+        );
+    }
+  }
+
   // Content blocks by slug (skip health-parameters — member-specific at delivery)
   const existingBlocks = await db
     .select({ slug: contentBlocks.slug })
@@ -159,6 +238,6 @@ export async function installTenantPlanDefaults(tenantId: string) {
 
   return {
     exercises: EXERCISE_CATALOG.length,
-    templates: [GYM_W1_TEMPLATE.key, HOME_W21_TEMPLATE.key],
+    templates: [GYM_W1_TEMPLATE.key, HOME_W21_TEMPLATE.key, nut.key],
   };
 }

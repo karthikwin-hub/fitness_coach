@@ -3,7 +3,11 @@ import { eq } from "drizzle-orm";
 import { getAuthUser, requireCoach } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { exercises } from "@/lib/db/schema";
-import { normalizeYoutubeVideoId } from "@/lib/youtube/parse-video-id";
+import {
+  getOwnedYoutubeChannelId,
+  parseYoutubeVideoIdInput,
+  resolveExerciseVideoSource,
+} from "@/lib/plans/exercise-video-source";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -26,18 +30,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  let youtubeVideoId = existing.youtubeVideoId;
-  if (body.youtubeVideoId !== undefined) {
-    if (body.youtubeVideoId === null || body.youtubeVideoId === "") {
-      youtubeVideoId = null;
-    } else {
-      const parsed = normalizeYoutubeVideoId(String(body.youtubeVideoId));
-      if (!parsed) {
-        return NextResponse.json({ error: "Invalid YouTube URL or video ID" }, { status: 400 });
-      }
-      youtubeVideoId = parsed;
-    }
+  const parsedYoutube = parseYoutubeVideoIdInput(body.youtubeVideoId);
+  if (body.youtubeVideoId !== undefined && body.youtubeVideoId && parsedYoutube === null) {
+    return NextResponse.json({ error: "Invalid YouTube URL or video ID" }, { status: 400 });
   }
+
+  const youtubeVideoId =
+    parsedYoutube !== undefined ? parsedYoutube : existing.youtubeVideoId;
+  const ownedChannelId = await getOwnedYoutubeChannelId(user.tenantId);
+  const videoSource =
+    body.videoSource !== undefined || body.youtubeVideoId !== undefined
+      ? resolveExerciseVideoSource(body, youtubeVideoId, ownedChannelId)
+      : existing.videoSource;
 
   const [item] = await db
     .update(exercises)
@@ -49,6 +53,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       defaultReps: body.defaultReps ?? existing.defaultReps,
       defaultSets: body.defaultSets ?? existing.defaultSets,
       notes: body.notes ?? existing.notes,
+      categoryId: body.categoryId !== undefined ? body.categoryId : existing.categoryId,
+      videoSource,
     })
     .where(eq(exercises.id, id))
     .returning();

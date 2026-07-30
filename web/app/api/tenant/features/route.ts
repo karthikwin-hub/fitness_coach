@@ -45,6 +45,12 @@ export async function PATCH(request: NextRequest) {
       Object.entries(body).filter(([, v]) => typeof v === "boolean"),
     ),
   };
+  if ("ownedYoutubeChannelId" in body) {
+    merged.ownedYoutubeChannelId =
+      typeof body.ownedYoutubeChannelId === "string" && body.ownedYoutubeChannelId.trim()
+        ? body.ownedYoutubeChannelId.trim()
+        : null;
+  }
 
   await db
     .update(tenants)

@@ -338,14 +338,14 @@ export const HOME_W21_STRUCTURE: TrainingTemplateStructure = {
 export const GYM_W1_TEMPLATE: TrainingTemplate = {
   type: "training_gym",
   key: "training_gym",
-  name: "Gym Split Week (Avinash W1)",
+  name: "Gym — 4-day split",
   structure: GYM_W1_STRUCTURE,
 };
 
 export const HOME_W21_TEMPLATE: TrainingTemplate = {
   type: "training_home",
   key: "training_home",
-  name: "Home Circuit Week (Shruti W21)",
+  name: "Home — circuit week",
   structure: HOME_W21_STRUCTURE,
 };
 

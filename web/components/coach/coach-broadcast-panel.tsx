@@ -5,6 +5,7 @@ import { useAuthHeaders, authFetchJson } from "@/lib/api/client";
 import { VoiceNoteRecorder } from "@/components/coach/voice-note-recorder";
 import { VideoMessageAttach } from "@/components/coach/video-message-attach";
 import { coachCopy } from "@/lib/copy/coach-portal";
+import { formatBroadcastActiveBadge } from "@/lib/coach/broadcast-validate";
 import type { BroadcastExpiresPreset } from "@/lib/coach/broadcast-expiry";
 import { isBroadcastVisible } from "@/lib/coach/broadcast-expiry";
 
@@ -38,6 +39,7 @@ function toDatetimeLocalValue(iso: string | null): string {
 
 export function CoachBroadcastPanel() {
   const getHeaders = useAuthHeaders();
+  const [expanded, setExpanded] = useState(false);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
@@ -171,138 +173,168 @@ export function CoachBroadcastPanel() {
       ? "Note expired — publish again to show on member dashboards"
       : null;
 
+  const activeBadge = isActive ? formatBroadcastActiveBadge(activeExpiresAt) : null;
+
   return (
-    <section className="mb-6 space-y-3 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)] p-4">
-      <div>
-        <h2 className="font-heading text-sm">{coachCopy.broadcastTitle}</h2>
-        <p className="text-xs text-white/50">{coachCopy.broadcastHint}</p>
-      </div>
-
-      <textarea
-        rows={3}
-        value={body}
-        onChange={(e) => {
-          setBody(e.target.value);
-          setSaved(false);
-        }}
-        placeholder="Share a mindset note, weekly focus, or celebration…"
-        className="w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
-      />
-
-      {uploadScope && (
-        <VoiceNoteRecorder
-          uploadScope={uploadScope}
-          attached={audioAttached}
-          onAttach={(url, durationSec) => {
-            setAudioAttached({ url, durationSec });
-            setAudioUrl("");
-            setSaved(false);
-          }}
-          onClear={() => {
-            setAudioAttached(null);
-            setSaved(false);
-          }}
-          disabled={saving || clearing}
-          label="Audio message"
-        />
-      )}
-
-      <label className="block text-xs text-white/50">
-        Audio URL (optional)
-        <input
-          value={audioUrl}
-          onChange={(e) => {
-            setAudioUrl(e.target.value);
-            setAudioAttached(null);
-            setSaved(false);
-          }}
-          placeholder="https://…"
-          disabled={Boolean(audioAttached?.url)}
-          className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm disabled:opacity-50"
-        />
-      </label>
-
-      {uploadScope && (
-        <VideoMessageAttach
-          uploadScope={uploadScope}
-          attached={videoAttached}
-          onAttach={(url) => {
-            setVideoAttached({ url });
-            setVideoUrl("");
-            setSaved(false);
-          }}
-          onClear={() => {
-            setVideoAttached(null);
-            setSaved(false);
-          }}
-          disabled={saving || clearing}
-          label="Video message"
-          urlFallback={videoUrl}
-          onUrlFallbackChange={(url) => {
-            setVideoUrl(url);
-            setVideoAttached(null);
-            setSaved(false);
-          }}
-        />
-      )}
-
-      <fieldset className="space-y-2">
-        <legend className="text-xs text-white/50">Visible on member dashboards for</legend>
-        <div className="flex flex-wrap gap-3 text-sm">
-          {(["24h", "48h", "custom"] as ExpiresPreset[]).map((preset) => (
-            <label key={preset} className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                name="broadcast-expires"
-                checked={expiresPreset === preset}
-                onChange={() => {
-                  setExpiresPreset(preset);
-                  setSaved(false);
-                }}
-              />
-              {preset === "24h" ? "24 hours" : preset === "48h" ? "48 hours" : "Custom"}
-            </label>
-          ))}
+    <section className="mb-6 rounded-xl border border-white/10 bg-[var(--brand-dark-surface)]">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-start justify-between gap-3 p-4 text-left hover:bg-white/[0.02]"
+        aria-expanded={expanded}
+      >
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-heading text-sm">{coachCopy.broadcastTitle}</h2>
+            {activeBadge && (
+              <span className="rounded-full bg-[var(--brand-diet)]/20 px-2 py-0.5 text-[10px] font-medium text-[var(--brand-diet)]">
+                {activeBadge}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-white/50">{coachCopy.broadcastHint}</p>
+          {!expanded && statusLine && (
+            <p className="mt-1 text-xs text-white/40">{statusLine}</p>
+          )}
         </div>
-        {expiresPreset === "custom" && (
-          <input
-            type="datetime-local"
-            value={customExpiresAt}
+        <span className="shrink-0 text-xs text-white/40" aria-hidden>
+          {expanded ? "▲" : "▼"}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="space-y-3 border-t border-white/10 p-4 pt-3">
+          <p className="text-xs text-white/45">
+            Combine text, audio, and/or video — at least one required to publish.
+          </p>
+
+          <textarea
+            rows={3}
+            value={body}
             onChange={(e) => {
-              setCustomExpiresAt(e.target.value);
+              setBody(e.target.value);
               setSaved(false);
             }}
-            className="rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+            placeholder="Share a mindset note, weekly focus, or celebration…"
+            className="w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
           />
-        )}
-      </fieldset>
 
-      {statusLine && <p className="text-xs text-white/40">{statusLine}</p>}
-      {error && (
-        <p className="text-xs text-red-400" role="alert">
-          {error}
-        </p>
+          {uploadScope && (
+            <VoiceNoteRecorder
+              uploadScope={uploadScope}
+              attached={audioAttached}
+              onAttach={(url, durationSec) => {
+                setAudioAttached({ url, durationSec });
+                setAudioUrl("");
+                setSaved(false);
+              }}
+              onClear={() => {
+                setAudioAttached(null);
+                setSaved(false);
+              }}
+              disabled={saving || clearing}
+              label="Audio message"
+            />
+          )}
+
+          <label className="block text-xs text-white/50">
+            Audio URL (optional)
+            <input
+              value={audioUrl}
+              onChange={(e) => {
+                setAudioUrl(e.target.value);
+                setAudioAttached(null);
+                setSaved(false);
+              }}
+              placeholder="https://…"
+              disabled={Boolean(audioAttached?.url)}
+              className="mt-1 w-full rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm disabled:opacity-50"
+            />
+          </label>
+
+          {uploadScope && (
+            <VideoMessageAttach
+              uploadScope={uploadScope}
+              attached={videoAttached}
+              onAttach={(url) => {
+                setVideoAttached({ url });
+                setVideoUrl("");
+                setSaved(false);
+              }}
+              onClear={() => {
+                setVideoAttached(null);
+                setSaved(false);
+              }}
+              disabled={saving || clearing}
+              label="Video message"
+              urlFallback={videoUrl}
+              onUrlFallbackChange={(url) => {
+                setVideoUrl(url);
+                setVideoAttached(null);
+                setSaved(false);
+              }}
+            />
+          )}
+
+          <fieldset className="space-y-2">
+            <legend className="text-xs text-white/50">Visible on member dashboards for</legend>
+            <div className="flex flex-wrap gap-3 text-sm">
+              {(["24h", "48h", "custom"] as ExpiresPreset[]).map((preset) => (
+                <label key={preset} className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="broadcast-expires"
+                    checked={expiresPreset === preset}
+                    onChange={() => {
+                      setExpiresPreset(preset);
+                      setSaved(false);
+                    }}
+                  />
+                  {preset === "24h" ? "24 hours" : preset === "48h" ? "48 hours" : "Custom"}
+                </label>
+              ))}
+            </div>
+            {expiresPreset === "custom" && (
+              <input
+                type="datetime-local"
+                value={customExpiresAt}
+                onChange={(e) => {
+                  setCustomExpiresAt(e.target.value);
+                  setSaved(false);
+                }}
+                className="rounded-lg border border-white/15 bg-[var(--brand-dark)] px-3 py-2 text-sm"
+              />
+            )}
+          </fieldset>
+
+          {statusLine && <p className="text-xs text-white/40">{statusLine}</p>}
+          {error && (
+            <p className="text-xs text-red-400" role="alert">
+              {error}
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={saving || clearing}
+              onClick={() => void publish()}
+              className="rounded-lg bg-[var(--brand-diet)] px-4 py-2 text-sm font-semibold text-[var(--brand-dark)] disabled:opacity-50"
+            >
+              {saving ? "Publishing…" : "Publish note"}
+            </button>
+            <button
+              type="button"
+              disabled={saving || clearing}
+              onClick={() => void clearNote()}
+              className="rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-50"
+            >
+              {clearing ? "Clearing…" : "Clear note"}
+            </button>
+            {saved && <span className="text-xs text-[var(--brand-diet)]">{coachCopy.noteSaved}</span>}
+          </div>
+        </div>
       )}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled={saving || clearing}
-          onClick={() => void publish()}
-          className="rounded-lg bg-[var(--brand-diet)] px-4 py-2 text-sm font-semibold text-[var(--brand-dark)] disabled:opacity-50"
-        >
-          {saving ? "Publishing…" : "Publish note"}
-        </button>
-        <button
-          type="button"
-          disabled={saving || clearing}
-          onClick={() => void clearNote()}
-          className="rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-50"
-        >
-          {clearing ? "Clearing…" : "Clear note"}
-        </button>
-        {saved && <span className="text-xs text-[var(--brand-diet)]">{coachCopy.noteSaved}</span>}
-      </div>
     </section>
   );
 }

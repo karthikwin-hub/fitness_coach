@@ -5,6 +5,11 @@ import {
   exercises,
   planTemplates,
 } from "@/lib/db/schema";
+import { installExerciseCategoryDefaults } from "@/lib/plans/exercise-categories";
+import {
+  getOwnedYoutubeChannelId,
+  resolveExerciseVideoSource,
+} from "@/lib/plans/exercise-video-source";
 import { normalizeYoutubeVideoId } from "@/lib/youtube/parse-video-id";
 import type { CommitResult, ImportSummary, ParsedCatalogWorkbook } from "@/lib/import/types";
 
@@ -18,12 +23,23 @@ export async function commitCatalogWorkbook(
     planTemplates: { create: 0, update: 0 },
   };
 
+  const categoryIds = await installExerciseCategoryDefaults(tenantId);
+  const ownedChannelId = await getOwnedYoutubeChannelId(tenantId);
+
   for (const row of workbook.exercises) {
     if (!row.slug || !row.name) continue;
 
     const youtubeVideoId = row.youtubeVideoIdOrUrl
       ? normalizeYoutubeVideoId(row.youtubeVideoIdOrUrl)
       : null;
+    const categoryId = row.categorySlug
+      ? categoryIds.get(row.categorySlug.toLowerCase()) ?? null
+      : null;
+    const videoSource = resolveExerciseVideoSource(
+      { videoSource: row.videoSource },
+      youtubeVideoId,
+      ownedChannelId,
+    );
 
     const [existing] = await db
       .select({ id: exercises.id })
@@ -42,6 +58,8 @@ export async function commitCatalogWorkbook(
           defaultReps: row.defaultReps ?? null,
           defaultSets: row.defaultSets ?? 3,
           notes: row.notes ?? null,
+          categoryId: categoryId ?? undefined,
+          videoSource,
         })
         .where(eq(exercises.id, existing.id));
       summary.exercises!.update += 1;
@@ -56,6 +74,8 @@ export async function commitCatalogWorkbook(
         defaultReps: row.defaultReps ?? null,
         defaultSets: row.defaultSets ?? 3,
         notes: row.notes ?? null,
+        categoryId,
+        videoSource,
       });
       summary.exercises!.create += 1;
     }

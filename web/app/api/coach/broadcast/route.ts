@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser, isCoach, requireCoach } from "@/lib/auth/server";
 import type { BroadcastExpiresPreset } from "@/lib/coach/broadcast-expiry";
+import { validateBroadcastPublishBody } from "@/lib/coach/broadcast-validate";
 import {
   getActiveBroadcast,
   listBroadcasts,
@@ -13,13 +14,9 @@ function parsePreset(value: unknown): BroadcastExpiresPreset | undefined {
 }
 
 function validatePublishBody(body: Record<string, unknown>): string | null {
-  const text = String(body.body ?? "").trim();
-  const audioUrl = body.audioUrl ? String(body.audioUrl).trim() : "";
-  const videoUrl = body.videoUrl ? String(body.videoUrl).trim() : "";
-  if (body.active === false) return null;
-  if (!text && !audioUrl && !videoUrl) {
-    return "Add text, audio, or video before publishing.";
-  }
+  const baseError = validateBroadcastPublishBody(body);
+  if (baseError) return baseError;
+
   const preset = parsePreset(body.expiresPreset);
   if (preset === "custom") {
     const expiresAt = body.expiresAt ? new Date(String(body.expiresAt)) : null;

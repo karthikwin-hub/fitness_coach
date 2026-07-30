@@ -51,9 +51,17 @@ service firebase.storage {
     match /check-ins/{memberId}/{fileName} {
       allow read, write: if request.auth != null;
     }
+    match /voice-notes/{memberId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    match /broadcasts/{tenantId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
 ```
+
+Copy from [`storage.rules`](../../storage.rules) at the repo root, or paste the rules above in Firebase Console.
 
 For stricter pilot rules, restrict writes to the signed-in user's member record once member IDs are mapped to Firebase UIDs.
 

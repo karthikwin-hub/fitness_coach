@@ -41,6 +41,20 @@ export async function GET(request: NextRequest) {
   const streakDays = computeStreakDays(checkInRows);
   const compliancePct = computeWeeklyCompliance(checkInRows);
 
+  const latestCheckInFeedbackRow = checkInRows.find(
+    (c) => c.coachNote?.trim() || c.coachVoiceNoteUrl?.trim(),
+  );
+  const latestCheckInFeedback = latestCheckInFeedbackRow
+    ? {
+        id: latestCheckInFeedbackRow.id,
+        status: latestCheckInFeedbackRow.status,
+        coachNote: latestCheckInFeedbackRow.coachNote,
+        coachVoiceNoteUrl: latestCheckInFeedbackRow.coachVoiceNoteUrl,
+        coachVoiceNoteDurationSec: latestCheckInFeedbackRow.coachVoiceNoteDurationSec,
+        createdAt: latestCheckInFeedbackRow.createdAt.toISOString(),
+      }
+    : null;
+
   const dayIdx = todayDayIndex();
   const todayWorkout =
     training?.days.find((d) => d.dayIndex === dayIdx) ??
@@ -72,6 +86,7 @@ export async function GET(request: NextRequest) {
           videoUrl: coachBroadcast.videoUrl,
         }
       : null,
+    latestCheckInFeedback,
     todayWorkout: todayWorkout
       ? {
           label: todayWorkout.label,

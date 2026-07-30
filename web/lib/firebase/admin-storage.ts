@@ -1,6 +1,29 @@
 import { getStorage } from "firebase-admin/storage";
 import { getFirebaseAdminApp } from "@/lib/firebase/admin";
 
+/** Upload buffer to Firebase Storage; returns public download URL or null if Admin SDK unavailable. */
+export async function uploadBufferToFirebaseStorage(
+  buffer: Buffer,
+  path: string,
+  contentType: string,
+): Promise<string | null> {
+  const app = getFirebaseAdminApp();
+  if (!app) return null;
+
+  try {
+    const bucket = getStorage(app).bucket();
+    const file = bucket.file(path);
+    await file.save(buffer, {
+      metadata: { contentType },
+      resumable: false,
+    });
+    await file.makePublic().catch(() => undefined);
+    return `https://storage.googleapis.com/${bucket.name}/${path}`;
+  } catch {
+    return null;
+  }
+}
+
 /** Extract Firebase Storage object path from a download URL, or null if not Firebase-hosted. */
 export function parseFirebaseStoragePath(url: string): string | null {
   if (!url || url.startsWith("dev://") || url.startsWith("data:")) return null;

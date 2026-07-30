@@ -4,6 +4,7 @@ import {
   buildDaySlots,
   DAY_END_HOUR,
   DAY_START_HOUR,
+  layoutOverlappingEvents,
   rangesOverlap,
   rangeIsAvailable,
   selectedSlotRange,
@@ -110,5 +111,35 @@ describe("multi-slot selection", () => {
         slots,
       ),
     ).toBe(false);
+  });
+});
+
+describe("layoutOverlappingEvents", () => {
+  it("keeps non-overlapping events in a single column", () => {
+    const layouts = layoutOverlappingEvents([
+      { id: "a", startsAt: "2026-08-05T09:00:00", endsAt: "2026-08-05T10:00:00" },
+      { id: "b", startsAt: "2026-08-05T10:00:00", endsAt: "2026-08-05T11:00:00" },
+    ]);
+    expect(layouts).toEqual([
+      { id: "a", column: 0, columnCount: 1 },
+      { id: "b", column: 0, columnCount: 1 },
+    ]);
+  });
+
+  it("splits overlapping events into side-by-side columns", () => {
+    const layouts = layoutOverlappingEvents([
+      { id: "a", startsAt: "2026-08-05T12:00:00", endsAt: "2026-08-05T13:00:00" },
+      { id: "b", startsAt: "2026-08-05T12:30:00", endsAt: "2026-08-05T13:30:00" },
+    ]);
+    expect(layouts.find((l) => l.id === "a")).toEqual({
+      id: "a",
+      column: 0,
+      columnCount: 2,
+    });
+    expect(layouts.find((l) => l.id === "b")).toEqual({
+      id: "b",
+      column: 1,
+      columnCount: 2,
+    });
   });
 });

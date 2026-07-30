@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
 
   await installTenantPlanDefaults(user.tenantId);
 
+  const includeArchived = request.nextUrl.searchParams.get("includeArchived") === "1";
+
   const rows = await db
     .select({
       id: planTemplates.id,
@@ -32,14 +34,17 @@ export async function GET(request: NextRequest) {
       tagsJson: planTemplates.tagsJson,
       sourceMemberId: planTemplates.sourceMemberId,
       structureJson: planTemplates.structureJson,
+      archivedAt: planTemplates.archivedAt,
       createdAt: planTemplates.createdAt,
       updatedAt: planTemplates.updatedAt,
     })
     .from(planTemplates)
     .where(eq(planTemplates.tenantId, user.tenantId));
 
+  const filtered = includeArchived ? rows : rows.filter((r) => !r.archivedAt);
+
   return NextResponse.json(
-    rows.map((r) => {
+    filtered.map((r) => {
       let stepGoal: number | null = null;
       let environment: string | null = null;
       let hasTraining = false;
@@ -82,6 +87,7 @@ export async function GET(request: NextRequest) {
         environment,
         hasTraining,
         hasNutrition,
+        archivedAt: r.archivedAt,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       };

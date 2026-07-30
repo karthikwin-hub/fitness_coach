@@ -182,6 +182,13 @@ function parseExercisesSheet(
     defaultReps: getStr(data, "default_reps"),
     defaultSets: getNum(data, "default_sets"),
     notes: getStr(data, "notes"),
+    categorySlug: getStr(data, "category_slug"),
+    videoSource:
+      getStr(data, "video_source") === "owned"
+        ? "owned"
+        : getStr(data, "video_source") === "third_party"
+          ? "third_party"
+          : undefined,
   }));
 }
 

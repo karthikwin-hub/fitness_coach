@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@/components/auth/auth-provider";
+import { useAuthHeaders } from "@/lib/api/client";
 import { uploadCoachVideo } from "@/lib/firebase/storage-upload";
 
 const MAX_DURATION_SEC = 180;
@@ -43,6 +45,8 @@ export function VideoMessageAttach({
   urlFallback = "",
   onUrlFallbackChange,
 }: VideoMessageAttachProps) {
+  const { firebaseUser } = useAuth();
+  const getHeaders = useAuthHeaders();
   const [recording, setRecording] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -81,7 +85,11 @@ export function VideoMessageAttach({
     setUploading(true);
     setError(null);
     try {
-      const url = await uploadCoachVideo(blob, uploadScope);
+      const authHeaders = await getHeaders();
+      const url = await uploadCoachVideo(blob, uploadScope, {
+        authHeaders,
+        preferServer: !firebaseUser,
+      });
       if (!url) {
         setError("Upload failed — check Firebase storage configuration.");
         return;

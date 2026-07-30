@@ -13,7 +13,7 @@ type DeliveryMeta = {
   coachVoiceNoteDurationSec: number | null;
 };
 
-export function NewPlanBanner() {
+export function NewPlanBanner({ compact = false }: { compact?: boolean }) {
   const getHeaders = useAuthHeaders();
   const [delivery, setDelivery] = useState<DeliveryMeta | null>(null);
 
@@ -28,6 +28,30 @@ export function NewPlanBanner() {
   }, [getHeaders]);
 
   if (!delivery) return null;
+
+  if (compact) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-white/55">
+          <span className="font-medium text-[var(--brand-primary)]">{delivery.weekLabel}</span>
+          {" · "}
+          {new Date(delivery.createdAt).toLocaleDateString()}
+        </p>
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <Link href="/member/workouts" className="text-[var(--brand-workout)]">
+            Workouts
+          </Link>
+          <Link href="/member/nutrition" className="text-[var(--brand-diet)]">
+            Nutrition
+          </Link>
+          <PlanPdfDownloadButton
+            label="PDF"
+            className="text-white/60 underline-offset-2 hover:underline disabled:opacity-50"
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-[var(--brand-primary)]/40 bg-[var(--brand-primary)]/15 p-4">

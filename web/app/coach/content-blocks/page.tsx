@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { CoachPlanDeliveryShell } from "@/components/coach/coach-plan-delivery-shell";
 import { useAuthHeaders, authFetch } from "@/lib/api/client";
+import {
+  CONTENT_BLOCK_FILTER_CHIPS,
+  filterBlocksByCategoryGroup,
+  type ContentBlockCategoryGroup,
+} from "@/lib/content-blocks/category-groups";
 
 type Block = {
   id: string;
@@ -52,7 +58,13 @@ export default function ContentBlocksPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("nutrition_tips");
+  const [filterGroup, setFilterGroup] = useState<ContentBlockCategoryGroup>("all");
   const [saving, setSaving] = useState(false);
+
+  const filteredBlocks = useMemo(
+    () => filterBlocksByCategoryGroup(blocks, filterGroup),
+    [blocks, filterGroup],
+  );
 
   async function load() {
     const data = await authFetch("/api/content-blocks", {}, getHeaders).then((r) => r.json());
@@ -116,10 +128,33 @@ export default function ContentBlocksPage() {
       <CoachPlanDeliveryShell
         eyebrow="Content blocks"
         title="Content block library"
-        description="Tap a block to view and edit its content."
+        description="Reusable tips, grocery lists, and workout guidelines. Filter by nutrition or workout."
         maxWidth="2xl"
       >
         <div className="space-y-6">
+          <p className="text-sm text-white/50">
+            Nutrition templates reference these blocks.{" "}
+            <Link href="/coach/plan-templates" className="text-[var(--brand-diet)] underline">
+              View plan templates →
+            </Link>
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            {CONTENT_BLOCK_FILTER_CHIPS.map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setFilterGroup(chip.id)}
+                className={`rounded-full px-3 py-1.5 text-xs ${
+                  filterGroup === chip.id
+                    ? "bg-[var(--brand-diet)] text-[var(--brand-dark)]"
+                    : "border border-white/15 text-white/60"
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
           <form onSubmit={createBlock} className="space-y-3 rounded-xl border border-white/10 p-4">
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" required className="w-full rounded-lg border border-white/15 bg-[var(--brand-dark-surface)] px-3 py-2 text-sm" />
             <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="slug" required className="w-full rounded-lg border border-white/15 bg-[var(--brand-dark-surface)] px-3 py-2 text-sm" />
@@ -135,7 +170,7 @@ export default function ContentBlocksPage() {
             <button type="submit" className="rounded-lg bg-[var(--brand-diet)] px-4 py-2 text-sm font-semibold text-[var(--brand-dark)]">Add block</button>
           </form>
           <ul className="space-y-2">
-            {blocks.map((b) => (
+            {filteredBlocks.map((b) => (
               <li key={b.id} className="rounded-xl border border-white/10 bg-[var(--brand-dark-surface)]">
                 <button
                   type="button"

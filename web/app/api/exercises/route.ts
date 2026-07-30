@@ -3,13 +3,20 @@ import { asc, eq } from "drizzle-orm";
 import { getAuthUser, requireCoach } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { exercises } from "@/lib/db/schema";
-import { normalizeYoutubeVideoId } from "@/lib/youtube/parse-video-id";
+import { installExerciseCategoryDefaults } from "@/lib/plans/exercise-categories";
+import {
+  getOwnedYoutubeChannelId,
+  parseYoutubeVideoIdInput,
+  resolveExerciseVideoSource,
+} from "@/lib/plans/exercise-video-source";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUser(request);
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  await installExerciseCategoryDefaults(user.tenantId);
 
   const items = await db
     .select()
@@ -27,13 +34,16 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const youtubeVideoId =
-    body.youtubeVideoId != null
-      ? normalizeYoutubeVideoId(String(body.youtubeVideoId))
-      : null;
-  if (body.youtubeVideoId && !youtubeVideoId) {
+  const parsedYoutube = parseYoutubeVideoIdInput(body.youtubeVideoId);
+  if (body.youtubeVideoId && parsedYoutube === null) {
     return NextResponse.json({ error: "Invalid YouTube URL or video ID" }, { status: 400 });
   }
+
+  const ownedChannelId = await getOwnedYoutubeChannelId(user.tenantId);
+  const youtubeVideoId = parsedYoutube ?? null;
+  const videoSource = resolveExerciseVideoSource(body, youtubeVideoId, ownedChannelId);
+
+  await installExerciseCategoryDefaults(user.tenantId);
 
   const [item] = await db
     .insert(exercises)
@@ -46,6 +56,8 @@ export async function POST(request: NextRequest) {
       defaultReps: body.defaultReps,
       defaultSets: body.defaultSets ?? 3,
       notes: body.notes,
+      categoryId: body.categoryId ?? null,
+      videoSource,
     })
     .returning();
 
