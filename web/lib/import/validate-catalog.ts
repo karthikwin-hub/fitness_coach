@@ -85,7 +85,7 @@ export async function validateCatalogWorkbook(
     }
   }
 
-  const categorySlugs = new Set(DEFAULT_EXERCISE_CATEGORIES.map((c) => c.slug));
+  const categorySlugs = new Set<string>(DEFAULT_EXERCISE_CATEGORIES.map((c) => c.slug));
 
   const slugSeen = new Map<string, number>();
   for (const row of workbook.exercises) {

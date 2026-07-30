@@ -12,13 +12,9 @@ import { isWorkoutGuidelineCategory } from "@/lib/plans/content-blocks";
 import {
   formatExerciseOptionLabel,
   sortCatalogForPicker,
+  type ExerciseCatalogRow,
 } from "@/lib/plans/prefer-owned-exercise";
 
-type Exercise = {
-  id: string;
-  name: string;
-  videoSource?: "owned" | "third_party" | null;
-};
 type ContentBlock = { id: string; title: string; category: string };
 type ExerciseRow = {
   id?: string;
@@ -60,7 +56,7 @@ export default function TrainingBuilderPage() {
   const getHeaders = useAuthHeaders();
   const timer = usePilotTimer(memberId);
   const [plans, setPlans] = useState<Array<{ id: string; weekNumber: number; status: string }>>([]);
-  const [catalog, setCatalog] = useState<Exercise[]>([]);
+  const [catalog, setCatalog] = useState<ExerciseCatalogRow[]>([]);
   const [guidelineBlocks, setGuidelineBlocks] = useState<ContentBlock[]>([]);
   const [activePlan, setActivePlan] = useState<TrainingPlan | null>(null);
   const [stepGoal, setStepGoal] = useState(10000);
@@ -93,7 +89,7 @@ export default function TrainingBuilderPage() {
   useEffect(() => {
     authFetch("/api/exercises", {}, getHeaders)
       .then((r) => r.json())
-      .then((rows: Exercise[]) => setCatalog(sortCatalogForPicker(rows)));
+      .then((rows: ExerciseCatalogRow[]) => setCatalog(sortCatalogForPicker(rows)));
     authFetch("/api/content-blocks", {}, getHeaders)
       .then((r) => r.json())
       .then((all: ContentBlock[]) =>

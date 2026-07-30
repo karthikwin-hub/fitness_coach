@@ -64,7 +64,7 @@ export default function PlanTemplateDetailPage() {
   if (!template && !message) {
     return (
       <RequireAuth roles={["coach", "platform_admin"]}>
-        <CoachPlanDeliveryShell title="Plan template" maxWidth="2xl">
+        <CoachPlanDeliveryShell eyebrow="Plan template" title="Plan template" maxWidth="2xl">
           <p className="text-sm text-white/50">Loading…</p>
         </CoachPlanDeliveryShell>
       </RequireAuth>
@@ -74,7 +74,7 @@ export default function PlanTemplateDetailPage() {
   if (!template) {
     return (
       <RequireAuth roles={["coach", "platform_admin"]}>
-        <CoachPlanDeliveryShell title="Plan template" maxWidth="2xl">
+        <CoachPlanDeliveryShell eyebrow="Plan template" title="Plan template" maxWidth="2xl">
           <p className="text-sm text-red-300">{message}</p>
           <Link href="/coach/plan-templates" className="mt-4 inline-block text-sm text-[var(--brand-diet)] underline">
             Back to templates
@@ -96,6 +96,7 @@ export default function PlanTemplateDetailPage() {
   }
 
   async function saveMetadata() {
+    if (!template) return;
     setBusy(true);
     const res = await authFetch(`/api/plan-templates/${template.id}`, {
       method: "PATCH",
@@ -117,6 +118,7 @@ export default function PlanTemplateDetailPage() {
   }
 
   async function setArchived(archived: boolean) {
+    if (!template) return;
     setBusy(true);
     await authFetch(`/api/plan-templates/${template.id}`, {
       method: "PATCH",
@@ -129,6 +131,7 @@ export default function PlanTemplateDetailPage() {
   }
 
   async function duplicateTemplate() {
+    if (!template) return;
     setBusy(true);
     const res = await authFetch(`/api/plan-templates/${template.id}/duplicate`, {
       method: "POST",
@@ -146,6 +149,7 @@ export default function PlanTemplateDetailPage() {
   }
 
   async function deleteTemplate() {
+    if (!template) return;
     if (!confirm(`Delete "${template.name}"?`)) return;
     setBusy(true);
     const res = await authFetch(`/api/plan-templates/${template.id}`, { method: "DELETE" }, getHeaders);
