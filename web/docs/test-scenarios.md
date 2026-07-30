@@ -65,7 +65,7 @@ Requirements traceability for implemented features. Sources: agreed plan (`.curs
 | TC-UX-001 | UI spec bottom nav | Member | On `/member` | View nav | Dashboard, Workouts, Nutrition, Messages | E2E | P0 | Pass |
 | TC-UX-002 | UI spec thumb zone | Member | Mobile 375px | Check check-in page | Primary actions in bottom third | Manual | P1 | Partial |
 | TC-UX-003 | Branding colors | Member | Nutrition vs workout | Compare pages | Green diet / teal workout accents | Manual | P1 | Pass |
-| TC-PWA-001 | PWA offline | Member | Install PWA | Go offline | Cached shell works | Manual | P2 | Partial |
+| TC-PWA-001 | PWA install + offline | Member / Coach | Mobile browser on HTTPS | Open `/member` or `/coach`; install via banner (Android) or Share → Add to Home Screen (iOS) | Standalone app icon; SW registered; offline still network-dependent | Manual | P2 | Partial |
 | TC-MSG-001 | Messaging | Member | On `/member/messages` | Open page | Chat thread with compose + Send | E2E | P1 | Pass |
 | TC-MSG-002 | Messaging | Coach | Demo member profile | Open Messages section | Seeded thread visible | E2E | P1 | Pass |
 
@@ -227,7 +227,7 @@ Run at **375px** viewport unless noted.
 - [ ] TC-FM05-005: Set checkbox persistence after reload
 - [ ] TC-UX-002: Thumb-zone CTAs on check-in
 - [ ] TC-UX-003: Green nutrition / teal workout color semantics
-- [ ] TC-PWA-001: Offline shell — **Partial (no service worker)**
+- [ ] TC-PWA-001: Install banner + service worker — **Partial (install supported; offline shell not cached)**
 - [ ] TC-BRAND-001: Montserrat + Abs-Track palette
 - [ ] TC-AUTH-005–006: Sign out on production (Firebase)
 - [ ] TC-COACH-007–012: Coach batch features (edit exercise, save & publish, week 1, guidelines)

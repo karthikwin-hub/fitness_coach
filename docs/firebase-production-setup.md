@@ -55,7 +55,8 @@ service firebase.storage {
       allow read, write: if request.auth != null;
     }
     match /broadcasts/{tenantId}/{fileName} {
-      allow read, write: if request.auth != null;
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }

@@ -4,9 +4,11 @@ import { getAuthUser, isCoach, requireCoach } from "@/lib/auth/server";
 import { checkInCreateSchema } from "@/lib/check-ins/schemas";
 import { enrichCoachCheckIns } from "@/lib/coach/check-in-enrichment";
 import { listCheckInsForMember, listCheckInsForTenant } from "@/lib/check-ins/queries";
+import { resolveMediaFieldsList } from "@/lib/firebase/resolve-media-fields";
 import { db } from "@/lib/db";
 import { checkIns, members, tenants } from "@/lib/db/schema";
 import { analyzeMealPhoto } from "@/lib/gemini/meal-analysis";
+import { resolveOptionalMediaUrl } from "@/lib/firebase/resolve-media-fields";
 import { getMemberByUserId } from "@/lib/members/queries";
 import { syncMemberStats } from "@/lib/members/sync-stats";
 import { getPublishedNutritionPlan } from "@/lib/plans/queries";
@@ -22,9 +24,13 @@ export async function GET(request: NextRequest) {
     const items = memberId
       ? await listCheckInsForMember(memberId, user.tenantId)
       : await listCheckInsForTenant(user.tenantId);
-    const memberIds = items.map((c) => c.memberId);
+    const resolvedItems = await resolveMediaFieldsList(items, [
+      "mealPhotoUrl",
+      "coachVoiceNoteUrl",
+    ]);
+    const memberIds = resolvedItems.map((c) => c.memberId);
     const { trendsByMember } = await enrichCoachCheckIns(user.tenantId, memberIds);
-    return NextResponse.json({ items, trendsByMember });
+    return NextResponse.json({ items: resolvedItems, trendsByMember });
   }
 
   const member = await getMemberByUserId(user.id, user.tenantId);
@@ -75,7 +81,9 @@ export async function POST(request: NextRequest) {
 
   if (body.mealPhotoUrl) {
     try {
-      aiAnalysis = await analyzeMealPhoto(body.mealPhotoUrl, {
+      const playablePhotoUrl = await resolveOptionalMediaUrl(body.mealPhotoUrl);
+      if (!playablePhotoUrl) throw new Error("Meal photo URL unavailable");
+      aiAnalysis = await analyzeMealPhoto(playablePhotoUrl, {
         caloriesMin: nutrition?.caloriesMin,
         caloriesMax: nutrition?.caloriesMax,
         proteinMin: nutrition?.proteinMin,

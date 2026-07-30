@@ -3,6 +3,7 @@
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { MemberBottomNav } from "./member-bottom-nav";
+import { PwaInstallBanner } from "@/components/pwa/pwa-install-banner";
 
 export function MemberShell({ children }: { children: React.ReactNode }) {
   const { appUser, firebaseConfigured } = useAuth();
@@ -29,6 +30,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
+      <PwaInstallBanner />
       <main className="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-4">
         {children}
       </main>

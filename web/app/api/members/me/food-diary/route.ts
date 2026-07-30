@@ -8,6 +8,7 @@ import {
   localLogDateString,
   scoreDailyCompliance,
 } from "@/lib/nutrition/diary";
+import { resolveMediaFieldsList } from "@/lib/firebase/resolve-media-fields";
 import type { MealType } from "@/lib/nutrition/types";
 
 const MEALS = new Set(["breakfast", "lunch", "dinner", "snack"]);
@@ -44,8 +45,11 @@ export async function GET(request: NextRequest) {
       })
     : null;
 
+  const entries = await resolveMediaFieldsList(day.entries, ["photoUrl"]);
+
   return NextResponse.json({
     ...day,
+    entries,
     targets: nutrition
       ? {
           caloriesMin: nutrition.caloriesMin,

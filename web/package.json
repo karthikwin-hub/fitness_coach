@@ -15,6 +15,7 @@
     "db:reset-prod-members": "tsx scripts/reset-production-members.ts",
     "db:studio": "drizzle-kit studio",
     "guides:pdf": "tsx scripts/generate-user-guides.ts",
+    "icons:pwa": "tsx scripts/generate-pwa-icons.ts",
     "plans:pdf": "tsx scripts/generate-seeded-plan-pdfs.ts"
   },
   "dependencies": {
@@ -45,6 +46,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
     "typescript": "^5",

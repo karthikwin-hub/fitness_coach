@@ -48,6 +48,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: firebaseUrl });
   }
 
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Media upload failed — check Firebase Storage configuration." },
+      { status: 503 },
+    );
+  }
+
   const devFallback = `dev://${kind}/${scope}/${Date.now()}.${ext}`;
   const url = await bufferToDataUrl(buffer, mime, devFallback);
   return NextResponse.json({ url });

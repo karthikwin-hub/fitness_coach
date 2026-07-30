@@ -9,6 +9,7 @@ export type MemberProfile = {
   firstName: string | null;
   lastName: string | null;
   phone: string | null;
+  whatsappUpdatesOptIn: boolean;
   addressLine1: string | null;
   addressLine2: string | null;
   city: string | null;
@@ -41,6 +42,7 @@ export type MemberProfileUpdate = Partial<{
   firstName: string | null;
   lastName: string | null;
   phone: string | null;
+  whatsappUpdatesOptIn: boolean;
   addressLine1: string | null;
   addressLine2: string | null;
   city: string | null;

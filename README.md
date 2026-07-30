@@ -110,6 +110,8 @@ Optional dual-domain env: `COACHING_HOSTS`, `VAULT_HOSTS`, `COACHING_PUBLIC_URL`
 | `/member/appointments` | View available 30-minute slots; book, reschedule, cancel, join, or add to Google Calendar |
 | `/member/messages` | In-app chat with coach |
 
+**Install on your phone (PWA):** On HTTPS (staging/production), open `/member` or `/coach` on a mobile browser. **Android:** tap **Install app** in the banner when prompted. **iPhone:** tap **Share → Add to Home Screen**. A dismissible install banner appears on member and coach mobile views; the app opens in standalone mode from the home screen icon. Requires a registered service worker and PNG icons (see `web/public/manifest.webmanifest`).
+
 ### Coach portal
 
 Persistent **top navigation** on every coach screen: Command center, Members, Calendar, Plan delivery, Settings (plus Sign out / Switch persona in dev).

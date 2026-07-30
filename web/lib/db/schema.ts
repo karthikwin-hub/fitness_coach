@@ -164,6 +164,7 @@ export const members = pgTable(
   firstName: text("first_name"),
   lastName: text("last_name"),
   phone: text("phone"),
+  whatsappUpdatesOptIn: boolean("whatsapp_updates_opt_in").notNull().default(false),
   addressLine1: text("address_line1"),
   addressLine2: text("address_line2"),
   city: text("city"),

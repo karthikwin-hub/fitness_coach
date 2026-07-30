@@ -3,6 +3,7 @@ import { getAuthUser } from "@/lib/auth/server";
 import { getMemberByUserId } from "@/lib/members/queries";
 import { getPublishedNutritionPlan } from "@/lib/plans/queries";
 import { analyzeMealPhoto } from "@/lib/gemini/meal-analysis";
+import { resolveOptionalMediaUrl } from "@/lib/firebase/resolve-media-fields";
 
 export async function POST(request: NextRequest) {
   const user = await getAuthUser(request);
@@ -22,7 +23,12 @@ export async function POST(request: NextRequest) {
   }
 
   const nutrition = await getPublishedNutritionPlan(member.id);
-  const analysis = await analyzeMealPhoto(mealPhotoUrl, {
+  const playablePhotoUrl = await resolveOptionalMediaUrl(mealPhotoUrl);
+  if (!playablePhotoUrl) {
+    return NextResponse.json({ error: "Photo URL unavailable" }, { status: 400 });
+  }
+
+  const analysis = await analyzeMealPhoto(playablePhotoUrl, {
     caloriesMin: nutrition?.caloriesMin,
     caloriesMax: nutrition?.caloriesMax,
     proteinMin: nutrition?.proteinMin,

@@ -42,6 +42,7 @@ export async function getMemberProfile(
     firstName: member.firstName,
     lastName: member.lastName,
     phone: member.phone,
+    whatsappUpdatesOptIn: member.whatsappUpdatesOptIn,
     addressLine1: member.addressLine1,
     addressLine2: member.addressLine2,
     city: member.city,
@@ -97,6 +98,7 @@ export async function updateMemberProfile(
   assign("firstName", "firstName");
   assign("lastName", "lastName");
   assign("phone", "phone");
+  assign("whatsappUpdatesOptIn", "whatsappUpdatesOptIn");
   assign("addressLine1", "addressLine1");
   assign("addressLine2", "addressLine2");
   assign("city", "city");

@@ -56,6 +56,8 @@ export function CoachBroadcastPanel() {
   const [clearing, setClearing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notifyWhatsApp, setNotifyWhatsApp] = useState(false);
+  const [lastWhatsAppSummary, setLastWhatsAppSummary] = useState<string | null>(null);
 
   const uploadScope = tenantId ? `broadcasts/${tenantId}` : null;
 
@@ -75,15 +77,24 @@ export function CoachBroadcastPanel() {
     const active = data.active;
     if (active?.active) {
       setBody(active.body ?? "");
-      setAudioUrl(active.audioUrl?.startsWith("http") && !active.audioUrl.includes("firebasestorage") ? active.audioUrl : "");
-      setVideoUrl(active.videoUrl?.startsWith("http") && !active.videoUrl.includes("firebasestorage") ? active.videoUrl : "");
+function isStoredCoachMediaUrl(url: string): boolean {
+  return (
+    url.includes("firebasestorage") ||
+    url.includes("storage.googleapis.com") ||
+    url.startsWith("data:") ||
+    url.startsWith("dev://")
+  );
+}
+
+      setAudioUrl(active.audioUrl?.startsWith("http") && !isStoredCoachMediaUrl(active.audioUrl) ? active.audioUrl : "");
+      setVideoUrl(active.videoUrl?.startsWith("http") && !isStoredCoachMediaUrl(active.videoUrl) ? active.videoUrl : "");
       setAudioAttached(
-        active.audioUrl && (active.audioUrl.includes("firebasestorage") || active.audioUrl.startsWith("data:") || active.audioUrl.startsWith("dev://"))
+        active.audioUrl && isStoredCoachMediaUrl(active.audioUrl)
           ? { url: active.audioUrl, durationSec: 0 }
           : null,
       );
       setVideoAttached(
-        active.videoUrl && (active.videoUrl.includes("firebasestorage") || active.videoUrl.startsWith("data:") || active.videoUrl.startsWith("dev://"))
+        active.videoUrl && isStoredCoachMediaUrl(active.videoUrl)
           ? { url: active.videoUrl }
           : null,
       );
@@ -118,7 +129,9 @@ export function CoachBroadcastPanel() {
     const resolvedAudio = (audioAttached?.url ?? audioUrl.trim()) || null;
     const resolvedVideo = (videoAttached?.url ?? videoUrl.trim()) || null;
 
-    const { error: saveError } = await authFetchJson(
+    const { data, error: saveError } = await authFetchJson<{
+      whatsapp?: { attempted: number; sent: number; dryRun: number; skipped: number };
+    }>(
       "/api/coach/broadcast",
       {
         method: "POST",
@@ -128,6 +141,7 @@ export function CoachBroadcastPanel() {
           audioUrl: resolvedAudio,
           videoUrl: resolvedVideo,
           active: true,
+          notifyWhatsApp,
           expiresPreset,
           expiresAt: expiresPreset === "custom" ? new Date(customExpiresAt).toISOString() : undefined,
         }),
@@ -139,6 +153,20 @@ export function CoachBroadcastPanel() {
     if (saveError) {
       setError(saveError);
       return;
+    }
+    if (data?.whatsapp) {
+      const { attempted, sent, dryRun, skipped } = data.whatsapp;
+      if (attempted === 0 && skipped > 0) {
+        setLastWhatsAppSummary("No opted-in members with a valid phone number.");
+      } else if (dryRun > 0 && sent === 0) {
+        setLastWhatsAppSummary(
+          `WhatsApp dry-run: ${dryRun} message(s) logged (set WHATSAPP_CLOUD_ACCESS_TOKEN to send automatically).`,
+        );
+      } else {
+        setLastWhatsAppSummary(`WhatsApp sent to ${sent} member(s).`);
+      }
+    } else {
+      setLastWhatsAppSummary(null);
     }
     setSaved(true);
     await loadBroadcast();
@@ -307,7 +335,26 @@ export function CoachBroadcastPanel() {
             )}
           </fieldset>
 
+          <label className="flex items-start gap-2 text-sm text-white/80">
+            <input
+              type="checkbox"
+              checked={notifyWhatsApp}
+              onChange={(e) => {
+                setNotifyWhatsApp(e.target.checked);
+                setSaved(false);
+              }}
+              className="mt-1"
+            />
+            <span>
+              Also notify members on WhatsApp who opted in (requires phone in E.164 format, e.g.{" "}
+              <span className="text-white/50">+91…</span>).
+            </span>
+          </label>
+
           {statusLine && <p className="text-xs text-white/40">{statusLine}</p>}
+          {lastWhatsAppSummary && (
+            <p className="text-xs text-[var(--brand-diet)]">{lastWhatsAppSummary}</p>
+          )}
           {error && (
             <p className="text-xs text-red-400" role="alert">
               {error}

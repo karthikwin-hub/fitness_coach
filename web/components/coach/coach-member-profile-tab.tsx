@@ -285,6 +285,18 @@ export function CoachMemberProfileTab({
             placeholder="+1 555 0100"
           />
         </Field>
+        <label className="flex items-start gap-2 text-sm text-white/80">
+          <input
+            type="checkbox"
+            checked={profile.whatsappUpdatesOptIn}
+            onChange={(e) => onFieldChange("whatsappUpdatesOptIn", e.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            Send coach broadcast and check-in feedback via WhatsApp to this phone (member must use
+            international format, e.g. +91…).
+          </span>
+        </label>
         <Field label="Address line 1">
           <input
             className={inputClass}

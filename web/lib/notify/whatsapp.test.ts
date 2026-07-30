@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildWhatsAppBroadcastMessage,
+  buildWhatsAppCheckInFeedbackMessage,
   buildWhatsAppClickToSendLink,
   buildWhatsAppPlanMessage,
+  sendWhatsAppText,
 } from "@/lib/notify/whatsapp";
 
 describe("buildWhatsAppPlanMessage", () => {
@@ -18,6 +21,46 @@ describe("buildWhatsAppPlanMessage", () => {
     expect(msg).toContain("Week 7");
     expect(msg).toContain("https://example.com/p/tok/plan.pdf");
     expect(msg).toContain("https://example.com/p/tok");
+  });
+});
+
+describe("buildWhatsAppBroadcastMessage", () => {
+  it("includes note body and dashboard link", () => {
+    const msg = buildWhatsAppBroadcastMessage({
+      memberFirstName: "Sarah",
+      coachName: "Helna",
+      brandName: "Abs-Track",
+      body: "Great week!",
+      dashboardUrl: "https://example.com/member",
+    });
+    expect(msg).toContain("Sarah");
+    expect(msg).toContain("Great week!");
+    expect(msg).toContain("https://example.com/member");
+  });
+});
+
+describe("buildWhatsAppCheckInFeedbackMessage", () => {
+  it("includes coach note and voice link", () => {
+    const msg = buildWhatsAppCheckInFeedbackMessage({
+      memberFirstName: "Sarah",
+      coachName: "Helna",
+      brandName: "Abs-Track",
+      coachNote: "Solid week",
+      dashboardUrl: "https://example.com/member",
+      voiceNoteUrl: "https://example.com/voice.webm",
+    });
+    expect(msg).toContain("Solid week");
+    expect(msg).toContain("https://example.com/voice.webm");
+  });
+});
+
+describe("sendWhatsAppText", () => {
+  it("dry-runs when cloud credentials are unset", async () => {
+    const result = await sendWhatsAppText({
+      phone: "+14155550142",
+      message: "Test",
+    });
+    expect(result).toEqual({ ok: true, dryRun: true });
   });
 });
 

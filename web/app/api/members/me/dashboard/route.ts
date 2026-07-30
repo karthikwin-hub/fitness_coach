@@ -4,6 +4,7 @@ import { getAuthUser } from "@/lib/auth/server";
 import { getActiveBroadcast } from "@/lib/coach/broadcasts";
 import { db } from "@/lib/db";
 import { checkIns } from "@/lib/db/schema";
+import { resolvePlayableMediaUrl } from "@/lib/firebase/admin-storage";
 import {
   computeStreakDays,
   computeWeeklyCompliance,
@@ -44,12 +45,15 @@ export async function GET(request: NextRequest) {
   const latestCheckInFeedbackRow = checkInRows.find(
     (c) => c.coachNote?.trim() || c.coachVoiceNoteUrl?.trim(),
   );
+  const resolvedVoiceUrl = latestCheckInFeedbackRow?.coachVoiceNoteUrl
+    ? await resolvePlayableMediaUrl(latestCheckInFeedbackRow.coachVoiceNoteUrl)
+    : null;
   const latestCheckInFeedback = latestCheckInFeedbackRow
     ? {
         id: latestCheckInFeedbackRow.id,
         status: latestCheckInFeedbackRow.status,
         coachNote: latestCheckInFeedbackRow.coachNote,
-        coachVoiceNoteUrl: latestCheckInFeedbackRow.coachVoiceNoteUrl,
+        coachVoiceNoteUrl: resolvedVoiceUrl,
         coachVoiceNoteDurationSec: latestCheckInFeedbackRow.coachVoiceNoteDurationSec,
         createdAt: latestCheckInFeedbackRow.createdAt.toISOString(),
       }
@@ -64,6 +68,22 @@ export async function GET(request: NextRequest) {
   const exerciseCount = todayWorkout
     ? todayWorkout.sections.reduce((n, s) => n + s.exercises.length, 0)
     : 0;
+
+  const recentCheckInSlice = checkInRows.slice(0, 14);
+  const [resolvedBroadcastAudio, resolvedBroadcastVideo, ...recentVoiceUrls] =
+    await Promise.all([
+      coachBroadcast?.audioUrl
+        ? resolvePlayableMediaUrl(coachBroadcast.audioUrl)
+        : Promise.resolve(null),
+      coachBroadcast?.videoUrl
+        ? resolvePlayableMediaUrl(coachBroadcast.videoUrl)
+        : Promise.resolve(null),
+      ...recentCheckInSlice.map((c) =>
+        c.coachVoiceNoteUrl
+          ? resolvePlayableMediaUrl(c.coachVoiceNoteUrl)
+          : Promise.resolve(null),
+      ),
+    ]);
 
   return NextResponse.json({
     displayName: user.displayName,
@@ -82,8 +102,8 @@ export async function GET(request: NextRequest) {
     coachBroadcast: coachBroadcast?.active
       ? {
           body: coachBroadcast.body,
-          audioUrl: coachBroadcast.audioUrl,
-          videoUrl: coachBroadcast.videoUrl,
+          audioUrl: resolvedBroadcastAudio,
+          videoUrl: resolvedBroadcastVideo,
         }
       : null,
     latestCheckInFeedback,
@@ -103,11 +123,11 @@ export async function GET(request: NextRequest) {
           proteinMax: nutrition.proteinMax,
         }
       : null,
-    recentCheckIns: checkInRows.slice(0, 14).map((c) => ({
+    recentCheckIns: recentCheckInSlice.map((c, index) => ({
       id: c.id,
       status: c.status,
       coachNote: c.coachNote,
-      coachVoiceNoteUrl: c.coachVoiceNoteUrl,
+      coachVoiceNoteUrl: recentVoiceUrls[index],
       coachVoiceNoteDurationSec: c.coachVoiceNoteDurationSec,
       createdAt: c.createdAt.toISOString(),
       weightKg: c.weightKg,

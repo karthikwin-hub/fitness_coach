@@ -15,7 +15,11 @@ export function computeRetentionCutoff({
 
 export function isExternalMediaUrl(url: string | null | undefined): boolean {
   if (!url) return false;
-  return url.startsWith("dev://") || url.startsWith("data:") || !url.includes("firebasestorage");
+  return (
+    url.startsWith("dev://") ||
+    url.startsWith("data:") ||
+    (!url.includes("firebasestorage") && !url.includes("storage.googleapis.com"))
+  );
 }
 
 export type PurgeSummary = {

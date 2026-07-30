@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { getAuthUser, isCoach, requireCoach } from "@/lib/auth/server";
 import type { BroadcastExpiresPreset } from "@/lib/coach/broadcast-expiry";
 import { validateBroadcastPublishBody } from "@/lib/coach/broadcast-validate";
@@ -7,6 +8,10 @@ import {
   listBroadcasts,
   upsertActiveBroadcast,
 } from "@/lib/coach/broadcasts";
+import { db } from "@/lib/db";
+import { tenants } from "@/lib/db/schema";
+import { mergeBranding, PLATFORM_DEFAULT_BRANDING, type TenantBranding } from "@/lib/brand";
+import { notifyBroadcastViaWhatsApp } from "@/lib/notify/whatsapp-notifications";
 
 function parsePreset(value: unknown): BroadcastExpiresPreset | undefined {
   if (value === "24h" || value === "48h" || value === "custom") return value;
@@ -71,7 +76,26 @@ export async function POST(request: NextRequest) {
     expiresAt: body.expiresAt != null ? String(body.expiresAt) : undefined,
   });
 
-  return NextResponse.json(broadcast);
+  let whatsapp: Awaited<ReturnType<typeof notifyBroadcastViaWhatsApp>> | undefined;
+  if (body.notifyWhatsApp === true && broadcast.active) {
+    const [tenant] = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.id, user!.tenantId))
+      .limit(1);
+    const branding = mergeBranding((tenant?.brandingJson ?? {}) as TenantBranding);
+    whatsapp = await notifyBroadcastViaWhatsApp({
+      tenantId: user!.tenantId,
+      brandName: branding.name ?? PLATFORM_DEFAULT_BRANDING.name,
+      coachName: user!.displayName,
+      body: broadcast.body,
+      audioUrl: broadcast.audioUrl,
+      videoUrl: broadcast.videoUrl,
+      requestOrigin: request.nextUrl.origin,
+    });
+  }
+
+  return NextResponse.json({ ...broadcast, whatsapp });
 }
 
 export async function DELETE(request: NextRequest) {

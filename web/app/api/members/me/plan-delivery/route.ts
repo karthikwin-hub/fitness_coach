@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth/server";
 import { getMemberByUserId } from "@/lib/members/queries";
+import { resolvePlayableMediaUrl } from "@/lib/firebase/admin-storage";
 import { getLatestActiveDeliveryForMember } from "@/lib/plans/delivery-tokens";
 
 /** Latest active plan delivery metadata for the signed-in member (banner + download). */
@@ -24,13 +25,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ delivery: null });
   }
 
+  const coachVoiceNoteUrl = delivery.coachVoiceNoteUrl
+    ? await resolvePlayableMediaUrl(delivery.coachVoiceNoteUrl)
+    : null;
+
   return NextResponse.json({
     delivery: {
       id: delivery.id,
       weekLabel: delivery.weekLabel,
       createdAt: delivery.createdAt,
       firstOpenedAt: delivery.firstOpenedAt,
-      coachVoiceNoteUrl: delivery.coachVoiceNoteUrl,
+      coachVoiceNoteUrl,
       coachVoiceNoteDurationSec: delivery.coachVoiceNoteDurationSec,
     },
   });

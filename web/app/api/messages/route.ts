@@ -7,8 +7,20 @@ import {
   insertMessage,
   listThread,
 } from "@/lib/messages/queries";
+import { resolvePlayableMediaUrl } from "@/lib/firebase/admin-storage";
 
 const MAX_BODY_LENGTH = 2000;
+
+async function withPlayableAudio<T extends { audioUrl: string | null }>(
+  items: T[],
+): Promise<T[]> {
+  return Promise.all(
+    items.map(async (item) => ({
+      ...item,
+      audioUrl: item.audioUrl ? await resolvePlayableMediaUrl(item.audioUrl) : null,
+    })),
+  );
+}
 
 function withIsMine<T extends { senderId: string }>(
   items: T[],
@@ -38,7 +50,8 @@ export async function GET(request: NextRequest) {
     }
 
     const thread = await listThread(user.tenantId, user.id, access.member.userId);
-    return NextResponse.json({ messages: withIsMine(thread, user.id) });
+    const messages = await withPlayableAudio(thread);
+    return NextResponse.json({ messages: withIsMine(messages, user.id) });
   }
 
   const member = await getMemberByUserId(user.id, user.tenantId);
@@ -51,7 +64,8 @@ export async function GET(request: NextRequest) {
   }
 
   const thread = await listThread(user.tenantId, user.id, member.coachId);
-  return NextResponse.json({ messages: withIsMine(thread, user.id) });
+  const messages = await withPlayableAudio(thread);
+  return NextResponse.json({ messages: withIsMine(messages, user.id) });
 }
 
 export async function POST(request: NextRequest) {

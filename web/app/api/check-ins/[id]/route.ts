@@ -4,10 +4,31 @@ import { getAuthUser, requireCoach } from "@/lib/auth/server";
 import { getCheckInById } from "@/lib/check-ins/queries";
 import { db } from "@/lib/db";
 import { checkIns, tenants } from "@/lib/db/schema";
+import { resolveMediaFields } from "@/lib/firebase/resolve-media-fields";
+import { resolveOptionalMediaUrl } from "@/lib/firebase/resolve-media-fields";
 import { analyzeMealPhoto } from "@/lib/gemini/meal-analysis";
+import { mergeBranding, PLATFORM_DEFAULT_BRANDING, type TenantBranding } from "@/lib/brand";
+import { notifyCheckInFeedbackViaWhatsApp } from "@/lib/notify/whatsapp-notifications";
 import { getPublishedNutritionPlan } from "@/lib/plans/queries";
 
 type Params = { params: Promise<{ id: string }> };
+
+function shouldNotifyCheckInFeedback(
+  existing: typeof checkIns.$inferSelect,
+  updated: typeof checkIns.$inferSelect,
+  body: Record<string, unknown>,
+): boolean {
+  const hasFeedback = Boolean(updated.coachNote?.trim() || updated.coachVoiceNoteUrl?.trim());
+  if (!hasFeedback || updated.status !== "approved") return false;
+
+  const feedbackChanged =
+    (body.coachNote !== undefined && body.coachNote !== existing.coachNote) ||
+    (body.coachVoiceNoteUrl !== undefined &&
+      body.coachVoiceNoteUrl !== existing.coachVoiceNoteUrl);
+  const approvedNow = body.status === "approved" && existing.status !== "approved";
+
+  return feedbackChanged || approvedNow;
+}
 
 export async function POST(request: NextRequest, { params }: Params) {
   const user = await getAuthUser(request);
@@ -31,7 +52,12 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   const nutrition = await getPublishedNutritionPlan(checkIn.memberId);
-  const analysis = await analyzeMealPhoto(checkIn.mealPhotoUrl, {
+  const playablePhotoUrl = await resolveOptionalMediaUrl(checkIn.mealPhotoUrl);
+  if (!playablePhotoUrl) {
+    return NextResponse.json({ error: "Meal photo URL unavailable" }, { status: 400 });
+  }
+
+  const analysis = await analyzeMealPhoto(playablePhotoUrl, {
     caloriesMin: nutrition?.caloriesMin,
     caloriesMax: nutrition?.caloriesMax,
     proteinMin: nutrition?.proteinMin,
@@ -70,7 +96,10 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   const enriched = await getCheckInById(updated.id, user.tenantId);
-  return NextResponse.json(enriched ?? updated);
+  const resolved = enriched
+    ? await resolveMediaFields(enriched, ["mealPhotoUrl", "coachVoiceNoteUrl"])
+    : null;
+  return NextResponse.json(resolved ?? updated);
 }
 
 export async function PATCH(request: NextRequest, { params }: Params) {
@@ -81,6 +110,16 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   const { id } = await params;
   const body = await request.json();
+
+  const [existing] = await db
+    .select()
+    .from(checkIns)
+    .where(and(eq(checkIns.id, id), eq(checkIns.tenantId, user.tenantId)))
+    .limit(1);
+
+  if (!existing) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const updates: {
     status?: "pending" | "approved" | "flagged";
@@ -120,6 +159,32 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  let whatsapp: Awaited<ReturnType<typeof notifyCheckInFeedbackViaWhatsApp>> | undefined;
+  if (shouldNotifyCheckInFeedback(existing, updated, body)) {
+    const [tenant] = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.id, user.tenantId))
+      .limit(1);
+    const branding = mergeBranding((tenant?.brandingJson ?? {}) as TenantBranding);
+    whatsapp = await notifyCheckInFeedbackViaWhatsApp({
+      tenantId: user.tenantId,
+      memberId: updated.memberId,
+      brandName: branding.name ?? PLATFORM_DEFAULT_BRANDING.name,
+      coachName: user.displayName,
+      coachNote: updated.coachNote,
+      coachVoiceNoteUrl: updated.coachVoiceNoteUrl,
+      requestOrigin: request.nextUrl.origin,
+    });
+  }
+
   const enriched = await getCheckInById(updated.id, user.tenantId);
-  return NextResponse.json(enriched ?? updated);
+  const resolved = enriched
+    ? await resolveMediaFields(enriched, ["mealPhotoUrl", "coachVoiceNoteUrl"])
+    : null;
+
+  return NextResponse.json({
+    ...(resolved ?? updated),
+    whatsapp,
+  });
 }
