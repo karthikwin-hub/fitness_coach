@@ -9,3 +9,8 @@ dist/
 test-results/
 playwright-report/
 .cursor/
+
+# Cross-platform / OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
